@@ -83,15 +83,15 @@ const main = async () => {
         EssentialModules,
         DatabaseModule,
         LocalDiskStorageModule,
+        MemoryStorageModule,
         SelfHostedModule,
         BroadcastModule,
         TestDriversModule,
+        TestConfigModule,
         PuterAIModule,
-        PuterExecModule,
         InternetModule,
-        MailModule,
-        ConvertModule,
         DevelopmentModule,
+        DNSModule,
     } = (await import('@heyputer/backend')).default;
 
     const k = new Kernel({
@@ -102,14 +102,14 @@ const main = async () => {
     }
     k.add_module(new DatabaseModule());
     k.add_module(new LocalDiskStorageModule());
+    k.add_module(new MemoryStorageModule());
     k.add_module(new SelfHostedModule());
     k.add_module(new BroadcastModule());
     k.add_module(new TestDriversModule());
+    k.add_module(new TestConfigModule());
     k.add_module(new PuterAIModule());
-    k.add_module(new PuterExecModule());
     k.add_module(new InternetModule());
-    k.add_module(new MailModule());
-    k.add_module(new ConvertModule());
+    k.add_module(new DNSModule());
     if ( process.env.UNSAFE_PUTER_DEV ) {
         k.add_module(new DevelopmentModule());
     }

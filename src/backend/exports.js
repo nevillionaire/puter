@@ -20,6 +20,7 @@ const CoreModule = require("./src/CoreModule.js");
 const { Kernel } = require("./src/Kernel.js");
 const DatabaseModule = require("./src/DatabaseModule.js");
 const LocalDiskStorageModule = require("./src/LocalDiskStorageModule.js");
+const MemoryStorageModule = require("./src/MemoryStorageModule.js");
 const SelfHostedModule = require("./src/modules/selfhosted/SelfHostedModule.js");
 const { testlaunch } = require("./src/index.js");
 const BaseService = require("./src/services/BaseService.js");
@@ -36,9 +37,12 @@ const { AppsModule } = require("./src/modules/apps/AppsModule.js");
 const { DevelopmentModule } = require("./src/modules/development/DevelopmentModule.js");
 const { HostOSModule } = require("./src/modules/hostos/HostOSModule.js");
 const { InternetModule } = require("./src/modules/internet/InternetModule.js");
-const { PuterExecModule } = require("./src/modules/puterexec/PuterExecModule.js");
-const { MailModule } = require("./src/modules/mail/MailModule.js");
-const { ConvertModule } = require("./src/modules/convert/ConvertModule.js");
+const { CaptchaModule } = require("./src/modules/captcha/CaptchaModule.js");
+const { EntityStoreModule } = require("./src/modules/entitystore/EntityStoreModule.js");
+const { KVStoreModule } = require("./src/modules/kvstore/KVStoreModule.js");
+const { DomainModule } = require("./src/modules/domain/DomainModule.js");
+const { DNSModule } = require("./src/modules/dns/DNSModule.js");
+const { TestConfigModule } = require("./src/modules/test-config/TestConfigModule.js");
 
 module.exports = {
     helloworld: () => {
@@ -61,21 +65,27 @@ module.exports = {
         WebModule,
         TemplateModule,
         AppsModule,
+        CaptchaModule,
+        EntityStoreModule,
+        KVStoreModule,
     ],
-
+    
     // Pre-built modules
     CoreModule,
     WebModule,
     DatabaseModule,
     LocalDiskStorageModule,
+    MemoryStorageModule,
     SelfHostedModule,
     TestDriversModule,
+    TestConfigModule,
     PuterAIModule,
-    PuterExecModule,
     BroadcastModule,
     InternetModule,
-    MailModule,
-    ConvertModule,
+    CaptchaModule,
+    KVStoreModule,
+    DNSModule,
+    DomainModule,
     
     // Development modules
     PerfMonModule,

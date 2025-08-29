@@ -44,6 +44,13 @@ import item_icon from "../helpers/item_icon.js"
 import UIWindowSearch from "./UIWindowSearch.js"
 
 async function UIDesktop(options) {
+    // start a transaction if we're not in embedded or fullpage mode
+    let transaction;
+    if (!window.is_embedded && !window.is_fullpage_mode) {
+        transaction = new window.Transaction('desktop-is-ready');
+        transaction.start();
+    }
+
     let h = '';
 
     // Set up the desktop channel for communication between different tabs in the same browser
@@ -64,6 +71,15 @@ async function UIDesktop(options) {
             hideDesktopIcons();
         }
     });
+
+    // Initialize toolbar auto-hide preference
+    window.toolbar_auto_hide_enabled = true; // Set default value
+
+    // Load the toolbar auto-hide preference
+    let toolbar_auto_hide_enabled_val = await puter.kv.get('toolbar_auto_hide_enabled');
+    if(toolbar_auto_hide_enabled_val === 'false' || toolbar_auto_hide_enabled_val === false){
+        window.toolbar_auto_hide_enabled = false;
+    }
 
     // Modify the hide/show functions to use CSS rules that will apply to all icons, including future ones
     window.hideDesktopIcons = function () {
@@ -706,35 +722,6 @@ async function UIDesktop(options) {
     puter.kv.get("sidebar_items").then(async (val) => {
         window.sidebar_items = val;
     })
-    // also update every 2 seconds
-    // setInterval(async () => {
-    //     puter.kv.get("sidebar_items").then(async (val) => {
-    //         window.sidebar_items = val;
-    //     })
-    // }, 2000);
-
-    // Get menubar style
-    puter.kv.get('menubar_style').then(async (val) => {
-        let value = val;
-        if (value === 'system' || value === 'desktop' || value === 'window') {
-            window.menubar_style = value;
-        } else {
-            window.menubar_style = 'system';
-        }
-
-        if (window.menubar_style === 'system') {
-            if (window.detectHostOS() === 'macos')
-                window.menubar_style = 'desktop';
-            else
-                window.menubar_style = 'window';
-        }
-
-        // set menubar style class to body
-        if (window.menubar_style === 'desktop') {
-            $('body').addClass('menubar-style-desktop');
-        }
-    })
-
 
     // Remove `?ref=...` from navbar URL
     if (window.url_query_params.has('ref')) {
@@ -767,6 +754,9 @@ async function UIDesktop(options) {
     // Taskbar
     // ---------------------------------------------------------------
     UITaskbar();
+
+    // Update desktop dimensions after taskbar is initialized with position
+    window.update_desktop_dimensions_for_taskbar();
 
     const el_desktop = document.querySelector('.desktop');
 
@@ -1057,7 +1047,13 @@ async function UIDesktop(options) {
     // because the items aren't visible anyway and we don't need to waste bandwidth/server resources
     //-------------------------------------------
     if (!window.is_embedded && !window.is_fullpage_mode) {
-        refresh_item_container(el_desktop, { fadeInItems: true })
+        refresh_item_container(el_desktop, { 
+            fadeInItems: true,
+            onComplete: () => {
+                // End transaction when desktop is fully ready for user interaction
+                transaction.end();
+            }
+        })
 
         // Show welcome window if user hasn't already seen it and hasn't directly navigated to an app 
         if (!window.url_paths[0]?.toLocaleLowerCase() === 'app' || !window.url_paths[1]) {
@@ -1120,8 +1116,13 @@ async function UIDesktop(options) {
 
                     selection.clearSelection();
                 }
+
+                // mark desktop as selectable active
+                $('.desktop').addClass('desktop-selectable-active');
             })
             .on('move', ({ store: { changed: { added, removed } }, event }) => {
+                window.desktop_selectable_is_active = true;
+
                 for (const el of added) {
                     // if ctrl or meta key is pressed and the item is already selected, then unselect it
                     if ((event.ctrlKey || event.metaKey) && $(el).hasClass('item-selected')) {
@@ -1142,49 +1143,61 @@ async function UIDesktop(options) {
                 }
             })
             .on('stop', evt => {
+                window.desktop_selectable_is_active = false;
+                $('.desktop').removeClass('desktop-selectable-active');
             });
     }
     // ----------------------------------------------------
-    // User options
+    // Toolbar
     // ----------------------------------------------------
+    // Has user seen the toolbar animation?
+    window.has_seen_toolbar_animation = await puter.kv.get('has_seen_toolbar_animation') ?? false;
+    
     let ht = '';
-    ht += `<div class="toolbar" style="height:${window.toolbar_height}px; min-height:${window.toolbar_height}px; max-height:${window.toolbar_height}px;">`;
+    let style = '';
+    let class_name = '';
+    if(window.has_seen_toolbar_animation && !isMobile.phone && !isMobile.tablet){
+        style = 'top: -20px; width: 40px;';
+        class_name = 'toolbar-hidden';
+    }else{
+        style= 'height:30px; min-height:30px; max-height:30px;';
+    }
+
+    ht += `<div class="toolbar hide-scrollbar ${class_name}" style="${style}">`;
     // logo
     ht += `<div class="toolbar-btn toolbar-puter-logo" title="Puter" style="margin-left: 10px;"><img src="${window.icons['logo-white.svg']}" draggable="false" style="display:block; width:17px; height:17px"></div>`;
-
 
     // clock spacer
     ht += `<div class="toolbar-spacer"></div>`;
 
     // create account button
-    ht += `<div class="toolbar-btn user-options-create-account-btn ${window.user.is_temp ? '' : 'hidden'}" style="padding:0; opacity:1;" title="Save Account">`;
+    ht += `<div class="toolbar-btn user-options-create-account-btn ${window.user.is_temp ? '' : 'hidden'}" style="padding:0; opacity:1;" title="${i18n('toolbar.save_account')}">`;
     ht += `<svg style="width: 17px; height: 17px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="48px" height="48px" viewBox="0 0 48 48"><g transform="translate(0, 0)"><path d="M45.521,39.04L27.527,5.134c-1.021-1.948-3.427-2.699-5.375-1.679-.717,.376-1.303,.961-1.679,1.679L2.479,39.04c-.676,1.264-.635,2.791,.108,4.017,.716,1.207,2.017,1.946,3.42,1.943H41.993c1.403,.003,2.704-.736,3.42-1.943,.743-1.226,.784-2.753,.108-4.017ZM23.032,15h1.937c.565,0,1.017,.467,1,1.031l-.438,14c-.017,.54-.459,.969-1,.969h-1.062c-.54,0-.983-.429-1-.969l-.438-14c-.018-.564,.435-1.031,1-1.031Zm.968,25c-1.657,0-3-1.343-3-3s1.343-3,3-3,3,1.343,3,3-1.343,3-3,3Z" fill="#ffbb00"></path></g></svg>`;
     ht += `</div>`;
 
     // 'Show Desktop'
-    ht += `<a href="/" class="show-desktop-btn toolbar-btn antialiased hidden" target="_blank" title="Show Desktop">Show Desktop <img src="${window.icons['launch-white.svg']}" style="width: 10px; height: 10px; margin-left: 5px;"></a>`;
+    ht += `<a href="/" class="show-desktop-btn toolbar-btn antialiased hidden" target="_blank" title="${i18n('desktop_show_desktop')}">${i18n('desktop_show_desktop')} <img src="${window.icons['launch-white.svg']}" style="width: 10px; height: 10px; margin-left: 5px;"></a>`;
 
     // refer
     if (window.user.referral_code) {
-        ht += `<div class="toolbar-btn refer-btn" title="Refer" style="background-image:url(${window.icons['gift.svg']});"></div>`;
+        ht += `<div class="toolbar-btn refer-btn" title="${i18n('toolbar.refer')}" style="background-image:url(${window.icons['gift.svg']});"></div>`;
     }
 
     // github
-    ht += `<a href="https://github.com/HeyPuter/puter" target="_blank" class="toolbar-btn" title="GitHub" style="background-image:url(${window.icons['logo-github-white.svg']});"></a>`;
+    ht += `<a href="https://github.com/HeyPuter/puter" target="_blank" class="toolbar-btn" title="${i18n('toolbar.github')}" style="background-image:url(${window.icons['logo-github-white.svg']});"></a>`;
 
     // do not show the fullscreen button on mobile devices since it's broken
     if (!isMobile.phone) {
         // fullscreen button
-        ht += `<div class="toolbar-btn fullscreen-btn" title="Enter Full Screen" style="background-image:url(${window.icons['fullscreen.svg']})"></div>`;
+        ht += `<div class="toolbar-btn fullscreen-btn" title="${i18n('toolbar.enter_fullscreen')}" style="background-image:url(${window.icons['fullscreen.svg']})"></div>`;
     }
 
     // qr code button -- only show if not embedded
     if (!window.is_embedded)
-        ht += `<div class="toolbar-btn qr-btn" title="QR code" style="background-image:url(${window.icons['qr.svg']})"></div>`;
+        ht += `<div class="toolbar-btn qr-btn" title="${i18n('toolbar.qrcode')}" style="background-image:url(${window.icons['qr.svg']})"></div>`;
 
     // search button
-    ht += `<div class="toolbar-btn search-btn" title="Search" style="background-image:url('${window.icons['search.svg']}')"></div>`;
-
+    ht += `<div class="toolbar-btn search-btn" title="${i18n('toolbar.search')}" style="background-image:url('${window.icons['search.svg']}')"></div>`;
 
     //clock 
     ht += `<div id="clock" class="toolbar-clock" style="">12:00 AM Sun, Jan 01</div>`;
@@ -1198,6 +1211,15 @@ async function UIDesktop(options) {
     // prepend toolbar to desktop
     $(ht).insertBefore(el_desktop);
 
+    // If auto-hide is disabled, ensure toolbar is visible on load
+    if (!window.toolbar_auto_hide_enabled) {
+        // Make sure toolbar is visible when auto-hide is disabled
+        setTimeout(() => {
+            if ($('.toolbar').hasClass('toolbar-hidden')) {
+                window.show_toolbar();
+            }
+        }, 100); // Small delay to ensure DOM is ready
+    }
 
     // send event
     window.dispatchEvent(new CustomEvent('toolbar:ready'));
@@ -1249,8 +1271,9 @@ async function UIDesktop(options) {
     else if (window.url_paths[0]?.toLocaleLowerCase() === 'settings') {
         // open settings
         UIWindowSettings({
+            tab: window.url_paths[1] || 'about',
             window_options: {
-                // is_fullpage: true,
+                is_fullpage: true,
             }
         });
     }
@@ -1374,24 +1397,375 @@ async function UIDesktop(options) {
     //--------------------------------------------------------------------------------------
     const url_paths = window.location.pathname.split('/').filter(element => element);
     if (url_paths[0]?.startsWith('@')) {
-        let username = url_paths[0].substring(1);
+        const username = url_paths[0].substring(1);
         let item_path = '/' + username + '/Public';
+        if ( url_paths.length > 1 ) {
+            item_path += '/' + url_paths.slice(1).join('/');
+        }
 
-        // check if username has valid characters
-        if (!username.match(/^[a-z0-9_]+$/i)) {
-            UIAlert({
-                message: 'Invalid username.'
+        // GUARD: avoid invalid user directories
+        {
+            if (!username.match(/^[a-z0-9_]+$/i)) {
+                UIAlert({
+                    message: 'Invalid username.'
+                });
+                return;
+            }
+        }
+
+        const stat = await puter.fs.stat(item_path);
+        
+        // TODO: DRY everything here with open_item. Unfortunately we can't
+        //       use open_item here because it's coupled with UI logic;
+        //       it requires a UIItem element and cannot operate on a
+        //       file path on its own.
+        if ( ! stat.is_dir ) {
+            if ( stat.associated_app ) {
+                launch_app({ name: stat.associated_app.name });
+                return;
+            }
+            
+            const ext_pref =
+                window.user_preferences[`default_apps${path.extname(item_path).toLowerCase()}`];
+            
+            if ( ext_pref ) {
+                launch_app({
+                    name: ext_pref,
+                    file_path: item_path,
+                });
+                return;
+            }
+            
+
+            const open_item_meta = await $.ajax({
+                url: window.api_origin + "/open_item",
+                type: 'POST',
+                contentType: "application/json",
+                data: JSON.stringify({
+                    path: item_path,
+                }),
+                headers: {
+                    "Authorization": "Bearer "+window.auth_token
+                },
+                statusCode: {
+                    401: function () {
+                        window.logout();
+                    },
+                },
             });
+            const suggested_apps = open_item_meta?.suggested_apps ?? await window.suggest_apps_for_fsentry({
+                path: item_path
+            });
+
+            // Note: I'm not adding unzipping logic here. We'll wait until
+            //       we've refactored open_item so that Puter can have a
+            //       properly-reusable open function.
+            if ( suggested_apps.length !== 0 ) {
+                launch_app({
+                    name: suggested_apps[0].name, 
+                    token: open_item_meta.token,
+                    file_path: item_path,
+                    app_obj: suggested_apps[0],
+                    window_title: path.basename(item_path),
+                    maximized: options.maximized,
+                    file_signature: open_item_meta.signature,
+                });
+                return;
+            }
+
+            await UIAlert({
+                message: 'Cannot find an app to open this file; ' +
+                    'opening directory instead.'
+            });
+            item_path = item_path.split('/').slice(0, -1).join('/')
+        }
+
+        UIWindow({
+            path: item_path,
+            title: path.basename(item_path),
+            icon: await item_icon({ is_dir: true, path: item_path }),
+            is_dir: true,
+            app: 'explorer',
+        });
+    }
+
+    window.hide_toolbar = (animate = true) => {
+        // Always show toolbar on mobile and tablet devices
+        if (isMobile.phone || isMobile.tablet) {
+            return;
+        }
+        
+        // Don't hide toolbar if auto-hide is disabled
+        if (!window.toolbar_auto_hide_enabled) {
+            return;
+        }
+        
+        if ($('.toolbar').hasClass('toolbar-hidden')) return;
+
+        // attach hidden class to toolbar
+        $('.toolbar').addClass('toolbar-hidden');
+
+        // animate the toolbar to top = -20px;
+        // animate width to 40px;
+        if (animate) {
+            $('.toolbar').animate({
+                top: '-20px',
+                width: '40px',
+            }, 100);
         } else {
-            UIWindow({
-                path: item_path,
-                title: path.basename(item_path),
-                icon: await item_icon({ is_dir: true, path: item_path }),
-                is_dir: true,
-                app: 'explorer',
+            $('.toolbar').css({
+                top: '-20px',
+                width: '40px',
             });
         }
+        // animate hide toolbar-btn, toolbar-clock
+        if (animate) {
+            $('.toolbar-btn, #clock, .user-options-menu-btn').animate({
+                opacity: 0,
+            }, 10);
+        } else {
+            $('.toolbar-btn, #clock, .user-options-menu-btn').css({
+                opacity: 0,
+            });
+        }
+
+        if(!window.has_seen_toolbar_animation){
+            puter.kv.set({
+                key: "has_seen_toolbar_animation",
+                value: true,
+            })
+
+            window.has_seen_toolbar_animation = true;
+        }
     }
+
+    window.show_toolbar = () => {
+        if (!$('.toolbar').hasClass('toolbar-hidden')) return;
+
+        // remove hidden class from toolbar
+        $('.toolbar').removeClass('toolbar-hidden');
+
+        $('.toolbar').animate({
+            top: 0,
+        }, 100).css('width', 'max-content');
+
+        // animate show toolbar-btn, toolbar-clock
+        $('.toolbar-btn, #clock, .user-options-menu-btn').animate({
+            opacity: 0.8,
+        }, 50);
+    }
+
+    // Toolbar hide/show logic with improved UX
+    window.toolbarHideTimeout = null;
+    let isMouseNearToolbar = false;
+
+    // Define safe zone around toolbar (in pixels)
+    const TOOLBAR_SAFE_ZONE = 30;
+    const TOOLBAR_HIDE_DELAY = 100; // Base delay before hiding
+    const TOOLBAR_QUICK_HIDE_DELAY = 200; // Quicker hide when mouse moves far away
+
+    // Function to check if mouse is in the safe zone around toolbar
+    window.isMouseInToolbarSafeZone = (mouseX, mouseY) => {
+        const toolbar = $('.toolbar')[0];
+        if (!toolbar) return false;
+        
+        const rect = toolbar.getBoundingClientRect();
+        
+        // Expand the toolbar bounds by the safe zone
+        const safeZone = {
+            top: rect.top - TOOLBAR_SAFE_ZONE,
+            bottom: rect.bottom + TOOLBAR_SAFE_ZONE,
+            left: rect.left - TOOLBAR_SAFE_ZONE,
+            right: rect.right + TOOLBAR_SAFE_ZONE
+        };
+        
+        return mouseX >= safeZone.left && 
+               mouseX <= safeZone.right && 
+               mouseY >= safeZone.top && 
+               mouseY <= safeZone.bottom;
+    };
+
+    // Function to handle toolbar hiding with improved logic
+    window.handleToolbarHiding = (mouseX, mouseY) => {
+        // Always show toolbar on mobile and tablet devices
+        if (isMobile.phone || isMobile.tablet) {
+            return;
+        }
+        
+        // Don't hide toolbar if auto-hide is disabled
+        if (!window.toolbar_auto_hide_enabled) {
+            return;
+        }
+        
+        // Clear any existing timeout
+        if (window.toolbarHideTimeout) {
+            clearTimeout(window.toolbarHideTimeout);
+            window.toolbarHideTimeout = null;
+        }
+        
+        // Don't hide if toolbar is already hidden
+        if ($('.toolbar').hasClass('toolbar-hidden')) return;
+        
+        const wasNearToolbar = isMouseNearToolbar;
+        isMouseNearToolbar = window.isMouseInToolbarSafeZone(mouseX, mouseY);
+        
+        // If mouse is in safe zone, don't hide
+        if (isMouseNearToolbar) {
+            return;
+        }
+        
+        // Determine hide delay based on mouse movement pattern
+        let hideDelay = TOOLBAR_HIDE_DELAY;
+        
+        // If mouse was previously near toolbar and now moved far away, hide quicker
+        if (wasNearToolbar && !isMouseNearToolbar) {
+            // Check if mouse moved significantly away
+            const toolbar = $('.toolbar')[0];
+            if (toolbar) {
+                const rect = toolbar.getBoundingClientRect();
+                const distanceFromToolbar = Math.min(
+                    Math.abs(mouseY - rect.bottom),
+                    Math.abs(mouseY - rect.top)
+                );
+                
+                // If mouse is far from toolbar, hide quicker
+                if (distanceFromToolbar > TOOLBAR_SAFE_ZONE * 2) {
+                    hideDelay = TOOLBAR_QUICK_HIDE_DELAY;
+                }
+            }
+        }
+        
+        // Set timeout to hide toolbar
+        window.toolbarHideTimeout = setTimeout(() => {
+            // Double-check mouse position before hiding
+            if (!window.isMouseInToolbarSafeZone(window.mouseX, window.mouseY)) {
+                window.hide_toolbar();
+            }
+            window.toolbarHideTimeout = null;
+        }, hideDelay);
+    };
+
+    // hovering over a hidden toolbar will show it
+    $(document).on('mouseenter', '.toolbar-hidden', function () {
+        // if a window is being dragged, don't show the toolbar
+        if(window.a_window_is_being_dragged)
+            return;
+
+        // if selectable is active , don't show the toolbar
+        if(window.desktop_selectable_is_active)
+            return;
+
+        if(window.is_fullpage_mode)
+            $('.window-app-iframe').css('pointer-events', 'none');
+
+        window.show_toolbar();
+        // Clear any pending hide timeout
+        if (window.toolbarHideTimeout) {
+            clearTimeout(window.toolbarHideTimeout);
+            window.toolbarHideTimeout = null;
+        }
+    });
+
+    // hovering over a visible toolbar will show it and cancel hiding
+    $(document).on('mouseenter', '.toolbar:not(.toolbar-hidden)', function () {
+        // if a window is being dragged, don't show the toolbar
+        if(window.a_window_is_being_dragged)
+            return;
+
+        // Clear any pending hide timeout when entering toolbar
+        if (window.toolbarHideTimeout) {
+            clearTimeout(window.toolbarHideTimeout);
+            window.toolbarHideTimeout = null;
+        }
+        isMouseNearToolbar = true;
+    });
+
+    $(document).on('mouseenter', '.toolbar', function () {
+        if(window.is_fullpage_mode)
+            $('.toolbar').focus();
+    });
+
+    // any click will hide the toolbar, unless:
+    // - it's on the toolbar
+    // - it's the user options menu button
+    // - the user options menu is open
+    $(document).on('click', function(e){
+        // Always show toolbar on mobile and tablet devices
+        if (isMobile.phone || isMobile.tablet) {
+            return;
+        }
+        
+        // Don't hide toolbar if auto-hide is disabled
+        if (!window.toolbar_auto_hide_enabled) {
+            return;
+        }
+        
+        // if the user has not seen the toolbar animation, don't hide the toolbar
+        if(!window.has_seen_toolbar_animation)
+            return;
+
+        if(
+            !$(e.target).hasClass('toolbar') && 
+            !$(e.target).hasClass('user-options-menu-btn') && 
+            $('.context-menu[data-id="user-options-menu"]').length === 0 &&
+            true
+        ){
+            window.hide_toolbar(false);
+        }
+    })
+
+    // Handle mouse leaving the toolbar
+    $(document).on('mouseleave', '.toolbar', function () {
+        // Always show toolbar on mobile and tablet devices
+        if (isMobile.phone || isMobile.tablet) {
+            return;
+        }
+        
+        // Don't hide toolbar if auto-hide is disabled
+        if (!window.toolbar_auto_hide_enabled) {
+            return;
+        }
+        
+        window.has_left_toolbar_at_least_once = true;
+        // if the user options menu is open, don't hide the toolbar
+        if ($('.context-menu[data-id="user-options-menu"]').length > 0)
+            return;
+    
+        // Start the hiding logic with current mouse position
+        window.handleToolbarHiding(window.mouseX, window.mouseY);
+    });
+
+    // Track mouse movement globally to update toolbar hiding logic
+    $(document).on('mousemove', function(e) {
+        // Always show toolbar on mobile and tablet devices
+        if (isMobile.phone || isMobile.tablet) {
+            return;
+        }
+        
+        // Don't hide toolbar if auto-hide is disabled
+        if (!window.toolbar_auto_hide_enabled) {
+            return;
+        }
+        
+        // if the user has not seen the toolbar animation, don't hide the toolbar
+        if(!window.has_seen_toolbar_animation && !window.has_left_toolbar_at_least_once)
+            return;
+
+        // if the user options menu is open, don't hide the toolbar
+        if ($('.context-menu[data-id="user-options-menu"]').length > 0)
+            return;
+
+        // Only handle toolbar hiding if toolbar is visible and mouse moved significantly
+        if (!$('.toolbar').hasClass('toolbar-hidden')) {
+            // Use throttling to avoid excessive calls
+            if (!window.mouseMoveThrottle) {
+                window.mouseMoveThrottle = setTimeout(() => {
+                    window.handleToolbarHiding(window.mouseX, window.mouseY);
+                    window.mouseMoveThrottle = null;
+                }, 100); // Throttle to every 100ms
+            }
+        }
+    });
 }
 
 $(document).on('contextmenu taphold', '.taskbar', function (event) {
@@ -1401,31 +1775,114 @@ $(document).on('contextmenu taphold', '.taskbar', function (event) {
 
     event.preventDefault();
     event.stopPropagation();
+    
+    // Get current taskbar position
+    const currentPosition = window.taskbar_position || 'bottom';
+    
+    // Create base menu items
+    let menuItems = [];
+    
+    // Only show position submenu on desktop devices
+    if (!isMobile.phone && !isMobile.tablet) {
+        menuItems.push({
+            html: i18n('desktop_position'),
+            items: [
+                {
+                    html: i18n('desktop_position_left'),
+                    checked: currentPosition === 'left',
+                    onClick: function() {
+                        window.update_taskbar_position('left');
+                    }
+                },
+                {
+                    html: i18n('desktop_position_bottom'),
+                    checked: currentPosition === 'bottom',
+                    onClick: function() {
+                        window.update_taskbar_position('bottom');
+                    }
+                },
+                {
+                    html: i18n('desktop_position_right'),
+                    checked: currentPosition === 'right',
+                    onClick: function() {
+                        window.update_taskbar_position('right');
+                    }
+                }
+            ]
+        });
+        menuItems.push('-'); // divider
+    }
+    
+    // Add the "Show open windows" option for all devices
+    menuItems.push({
+        html: i18n('desktop_show_open_windows'),
+        onClick: function () {
+            $(`.window`).showWindow();
+        }
+    });
+    
+    // Add the "Show the desktop" option for all devices
+    menuItems.push({
+        html: i18n('desktop_show_desktop'),
+        onClick: function () {
+            $(`.window`).hideWindow();
+        }
+    });
+    
     UIContextMenu({
         parent_element: $('.taskbar'),
+        items: menuItems
+    });
+    return false;
+});
+
+// Toolbar context menu
+$(document).on('contextmenu taphold', '.toolbar', function (event) {
+    // dismiss taphold on regular devices
+    if (event.type === 'taphold' && !isMobile.phone && !isMobile.tablet)
+        return;
+
+    // Don't show context menu on mobile devices since toolbar auto-hide is disabled there
+    if (isMobile.phone || isMobile.tablet)
+        return;
+
+    event.preventDefault();
+    event.stopPropagation();
+        
+    UIContextMenu({
+        parent_element: $('.toolbar'),
         items: [
             //--------------------------------------------------
-            // Show open windows
+            // Enable/Disable Auto-hide
             //--------------------------------------------------
             {
-                html: "Show open windows",
+                html: window.toolbar_auto_hide_enabled ? i18n('Disable Auto-hide') : i18n('Enable Auto-hide'),
                 onClick: function () {
-                    $(`.window`).showWindow();
-                }
-            },
-            //--------------------------------------------------
-            // Show the desktop
-            //--------------------------------------------------
-            {
-                html: "Show the desktop",
-                onClick: function () {
-                    $(`.window`).hideWindow();
+                    // Toggle the preference
+                    window.toolbar_auto_hide_enabled = !window.toolbar_auto_hide_enabled;
+                    
+                    // Save the preference
+                    puter.kv.set('toolbar_auto_hide_enabled', window.toolbar_auto_hide_enabled.toString());
+                    
+                    // If auto-hide was just disabled and toolbar is currently hidden, show it
+                    if (!window.toolbar_auto_hide_enabled && $('.toolbar').hasClass('toolbar-hidden')) {
+                        window.show_toolbar();
+                    }
+                    
+                    // Clear any pending hide timeout
+                    if (window.toolbarHideTimeout) {
+                        clearTimeout(window.toolbarHideTimeout);
+                        window.toolbarHideTimeout = null;
+                    }
+
+                    // hide toolbar
+                    window.hide_toolbar();
                 }
             }
         ]
     });
     return false;
-})
+});
 
 $(document).on('click', '.qr-btn', async function (e) {
     UIWindowQR({
@@ -1765,11 +2222,11 @@ document.addEventListener('fullscreenchange', (event) => {
 
     if (document.fullscreenElement) {
         $('.fullscreen-btn').css('background-image', `url(${window.icons['shrink.svg']})`);
-        $('.fullscreen-btn').attr('title', 'Exit Full Screen');
+        $('.fullscreen-btn').attr('title', i18n('desktop_exit_full_screen'));
         window.user_preferences.clock_visible === 'auto' && $('#clock').show();
     } else {
         $('.fullscreen-btn').css('background-image', `url(${window.icons['fullscreen.svg']})`);
-        $('.fullscreen-btn').attr('title', 'Enter Full Screen');
+        $('.fullscreen-btn').attr('title', i18n('desktop_enter_full_screen'));
         window.user_preferences.clock_visible === 'auto' && $('#clock').hide();
     }
 })
@@ -1839,6 +2296,13 @@ window.remove_taskbar_item = function (item) {
 
     $(item).animate({ width: 0 }, 200, function () {
         $(item).remove();
+        
+        // Adjust taskbar item sizes after removing an item
+        if (window.adjust_taskbar_item_sizes) {
+            setTimeout(() => {
+                window.adjust_taskbar_item_sizes();
+            }, 10);
+        }
     })
 }
 

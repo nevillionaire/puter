@@ -966,7 +966,38 @@ const body_parser_error_handler = (err, req, res, next) => {
     next();
 }
 
+/**
+ * Given a uid, returns a file node.
+ * 
+ * TODO (xiaochen): It only works for MemoryFSProvider currently.
+ * 
+ * @param {string} uid - The uid of the file to get.
+ * @returns {Promise<MemoryFile|null>} The file node, or null if the file does not exist.
+ */
+async function get_entry(uid) {
+    const svc_mountpoint = Context.get('services').get('mountpoint');
+    const uid_selector = new NodeUIDSelector(uid);
+    const provider = await svc_mountpoint.get_provider(uid_selector);
+
+    // NB: We cannot import MemoryFSProvider here because it will cause a circular dependency.
+    if ( provider.constructor.name !== 'MemoryFSProvider' ) {
+        return null;
+    }
+
+    return provider.stat({
+        selector: uid_selector,
+    });
+}
+
 async function is_ancestor_of(ancestor_uid, descendant_uid){
+    const ancestor = await get_entry(ancestor_uid);
+    const descendant = await get_entry(descendant_uid);
+
+    if ( ancestor && descendant ) {
+        return descendant.path.startsWith(ancestor.path);
+    }
+
+
     /** @type BaseDatabaseAccessService */
     const db = services.get('database').get(DB_READ, 'filesystem');
 
@@ -1084,28 +1115,34 @@ async function gen_public_token(file_uuid, ttl = 24 * 60 * 60){
 }
 
 async function deleteUser(user_id){
-    console.log('THIS IS deleteUser ---');
     /** @type BaseDatabaseAccessService */
     const db = services.get('database').get(DB_READ, 'filesystem');
 
-    // get a list of all files owned by this user
-    let files = await db.read(
-        `SELECT uuid, bucket, bucket_region FROM fsentries WHERE user_id = ? AND is_dir = 0`,
-        [user_id]
-    );
+    // get a list of up to 5000 files owned by this user
+    for ( let offset=0; true; offset += 5000 ) {
+        let files = await db.read(
+            `SELECT uuid, bucket, bucket_region FROM fsentries WHERE user_id = ? AND is_dir = 0 LIMIT 5000 OFFSET `+offset,
+            [user_id]
+        );
+        
+        if ( !files || files.length == 0 ) break;
 
-    // delete all files from S3
-    if(files !== null && files.length > 0){
-        for(let i=0; i<files.length; i++){
-            // init S3 SDK
-            const svc_fs = Context.get('services').get('filesystem');
-            const svc_mountpoint =
-                Context.get('services').get('mountpoint');
-            const storage = svc_mountpoint.get_storage();
-            const op_delete = storage.create_delete();
-            await op_delete.run({
-                node: await svc_fs.node(new NodeUIDSelector(files[i].uuid))
-            });
+        // delete all files from S3
+        if(files !== null && files.length > 0){
+            for(let i=0; i<files.length; i++){
+                // init S3 SDK
+                const svc_fs = Context.get('services').get('filesystem');
+                const svc_mountpoint =
+                    Context.get('services').get('mountpoint');
+                // NB: We use a hard-coded string to avoid circular dependency.
+                // 
+                // TODO (xiaochen): what if the provider is not PuterFSProvider?
+                const storage = svc_mountpoint.get_storage('PuterFSProvider');
+                const op_delete = storage.create_delete();
+                await op_delete.run({
+                    node: await svc_fs.node(new NodeUIDSelector(files[i].uuid))
+                });
+            }
         }
     }
 
@@ -1192,37 +1229,6 @@ async function jwt_auth(req){
     }
 
     return ancestors;
-}
-
-function is_valid_uuid ( uuid ) {
-    let s = "" + uuid;
-    s = s.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-    return !! s;
-}
-
-function is_valid_uuid4 ( uuid ) {
-    return is_valid_uuid(uuid);
-}
-
-function is_specifically_uuidv4 ( uuid ) {
-    let s = "" + uuid;
-
-    s = s.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i);
-    if (!s) {
-      return false;
-    }
-    return true;
-}
-
-function is_valid_url ( url ) {
-    let s = "" + url;
-
-    try {
-        new URL(s);
-        return true;
-    } catch (e) {
-        return false;
-    }
 }
 
 function hyphenize_confirm_code(email_confirm_code){
@@ -1679,12 +1685,9 @@ module.exports = {
     is_empty,
     is_shared_with,
     is_shared_with_anyone,
-    is_valid_uuid4,
-    is_valid_uuid,
-    is_specifically_uuidv4,
+    ...require('@heyputer/backend-core-0').validation,
     is_temp_users_disabled,
     is_user_signup_disabled,
-    is_valid_url,
     jwt_auth,
     mv,
     number_format,

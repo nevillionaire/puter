@@ -38,6 +38,8 @@ const strutil = require('@heyputer/putility').libs.string;
 * It also validates the host header and IP addresses to prevent security vulnerabilities.
 */
 class WebServerService extends BaseService {
+    static CONCERN = 'web';
+
     static MODULES = {
         https: require('https'),
         http: require('http'),
@@ -49,6 +51,14 @@ class WebServerService extends BaseService {
         ['on-finished']: require('on-finished'),
         morgan: require('morgan'),
     };
+    
+    _construct () {
+        this.undefined_origin_allowed = [];
+    }
+    
+    allow_undefined_origin (route) {
+        this.undefined_origin_allowed.push(route);
+    }
 
 
     /**
@@ -62,7 +72,9 @@ class WebServerService extends BaseService {
     async ['__on_boot.consolidation'] () {
         const app = this.app;
         const services = this.services;
+        await services.emit('install.middlewares.early', { app });
         await services.emit('install.middlewares.context-aware', { app });
+        this.install_post_middlewares_({ app });
         await services.emit('install.routes', {
             app,
             router_webhooks: this.router_webhooks,
@@ -70,6 +82,22 @@ class WebServerService extends BaseService {
         await services.emit('install.routes-gui', { app });
         
         this.log.noticeme('web server setup done');
+    }
+    
+    install_post_middlewares_ ({ app }) {
+        app.use(async (req, res, next) => {
+            const svc_event = this.services.get('event');
+
+            const event = {
+                req, res,
+                end_: false,
+                end () {
+                    this.end_ = true;
+                }
+            };
+            await svc_event.emit('request.will-be-handled', event);
+            if ( ! event.end_ ) next();
+        });
     }
 
 
@@ -358,8 +386,17 @@ class WebServerService extends BaseService {
                     fields.status, fields.responseTime,
                 ].join(' ');
 
-                const log = this.services.get('log-service').create('morgan');
-                log.info(message, fields);
+                const log = this.services.get('log-service').create('morgan', {
+                    concern: 'web'
+                });
+                try {
+                    this.context.arun(() => {
+                        log.info(message, fields);
+                    });
+                } catch (e) {
+                    console.log('failed to log this message properly:', message, fields);
+                    console.error(e);
+                }
             }
             };
 
@@ -465,7 +502,11 @@ class WebServerService extends BaseService {
             if (allowedDomains.some(allowedDomain => hostName === allowedDomain || hostName.endsWith('.' + allowedDomain))) {
                 next(); // Proceed if the host is valid
             } else {
-                return res.status(400).send('Invalid Host header.');
+                if ( ! config.custom_domains_enabled ) {
+                    return res.status(400).send('Invalid Host header.');
+                }
+                req.is_custom_domain = true;
+                next();
             }
         })
         
@@ -477,10 +518,17 @@ class WebServerService extends BaseService {
                 ip: req.headers?.['x-forwarded-for'] ||
                     req.connection?.remoteAddress,
             };
-            await svc_event.emit('ip.validate', event);
+
+            if ( ! this.config.disable_ip_validate_event ) {
+                await svc_event.emit('ip.validate', event);
+            }
 
             // rules that don't apply to notification endpoints
-            if ( req.path !== '/sns' && req.path !== '/sns/' ) {
+            const undefined_origin_allowed = this.undefined_origin_allowed.some(rule => {
+                if ( typeof rule === 'string' ) return rule === req.path;
+                return rule.test(req.path);
+            });
+            if ( ! undefined_origin_allowed ) {
                 // check if no origin
                 if ( req.method === 'POST' && req.headers.origin === undefined ) {
                     event.allow = false;
@@ -535,7 +583,6 @@ class WebServerService extends BaseService {
                     req.query[k] = undefined;
                 }
             }
-            console.log('\x1B[36;1m======= ok???', req.query);
             next();
         });
         
@@ -571,7 +618,7 @@ class WebServerService extends BaseService {
                 req.co_isolation_enabled
                 ;
 
-            if ( req.path === '/signup' || req.path === '/login' ) {
+            if ( req.path === '/signup' || req.path === '/login' || req.path.startsWith('/extensions/') ) {
                 res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
             }
             // Website(s) to allow to connect
@@ -583,10 +630,11 @@ class WebServerService extends BaseService {
             }
 
             // Request methods to allow
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
 
             const allowed_headers = [
-                "Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization",
+                "Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "sentry-trace", "baggage",
+                "Depth", "Destination", "Overwrite", "If", "Lock-Token", "DAV"
             ];
 
             // Request headers to allow
@@ -605,6 +653,7 @@ class WebServerService extends BaseService {
                 res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
             }
             res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
             // Pass to next layer of middleware
 
             // disable iframes on the main domain
@@ -617,7 +666,21 @@ class WebServerService extends BaseService {
         });
 
         // Options for all requests (for CORS)
-        app.options('/*', (_, res) => {
+        app.options('/*', (req, res) => {
+            if (req.path.startsWith('/dav/')) {
+                res.set({
+                    'Allow': 'OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, COPY, MOVE, MKCOL, PROPFIND, PROPPATCH, LOCK, UNLOCK, ORDERPATCH',
+                    'DAV': '1, 2, ordered-collections',  // WebDAV compliance classes with ordered-collections for macOS
+                    'MS-Author-Via': 'DAV',  // Microsoft compatibility
+                    'Server': 'Puter/WebDAV',  // Server identification
+                    'Accept-Ranges': 'bytes',
+                    'Content-Type': 'text/plain; charset=utf-8',  // Explicit content type
+                    'Content-Length': '0',
+                    'Cache-Control': 'no-cache',  // Prevent caching issues
+                    'Connection': 'Keep-Alive'  // Keep connection alive for macOS
+                });
+                res.status(200).end();
+            }
             return res.sendStatus(200);
         });
     }

@@ -33,7 +33,6 @@ import UIWindowRequestPermission from './UI/UIWindowRequestPermission.js';
 import UIWindowChangeUsername from './UI/UIWindowChangeUsername.js';
 import update_last_touch_coordinates from './helpers/update_last_touch_coordinates.js';
 import update_title_based_on_uploads from './helpers/update_title_based_on_uploads.js';
-import PuterDialog from './UI/PuterDialog.js';
 import { ThemeService } from './services/ThemeService.js';
 import { BroadcastService } from './services/BroadcastService.js';
 import { ProcessService } from './services/ProcessService.js';
@@ -152,6 +151,201 @@ if(jQuery){
     };
 }
 
+/**
+ * Shows a Turnstile challenge modal for first-time temp user creation
+ * @param {Object} options - Configuration options
+ * @param {Function} options.onSuccess - Callback when challenge is completed successfully
+ * @param {Function} options.onError - Callback when challenge fails
+ */
+window.showTurnstileChallenge = function(options) {
+    return new Promise((resolve) => {
+        const modalId = 'turnstile-challenge-modal';
+        const siteKey = window.gui_params?.turnstileSiteKey;
+        
+        if (!siteKey) {
+            options.onError('Turnstile site key not configured');
+            return resolve();
+        }
+
+        // Create modal HTML
+        let modalHtml = `
+            <div id="${modalId}" class="modal" style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">
+                <div class="modal-content" style="
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    position: relative;
+                ">
+                    <div class="modal-header" style="margin-bottom: 20px;">
+                        <img src="${window.icons['logo-white.svg']}" style="
+                            width: 40px; 
+                            height: 40px; 
+                            margin: 0 auto 15px; 
+                            display: block; 
+                            padding: 15px; 
+                            background-color: blue; 
+                            border-radius: 8px;
+                        ">
+                        <h2 style="
+                            margin: 0;
+                            color: #1f2937;
+                            font-size: 24px;
+                            font-weight: 600;
+                            line-height: 1.2;
+                        ">Welcome to Puter</h2>
+                        <p style="
+                            margin: 10px 0 0 0;
+                            color: #6b7280;
+                            font-size: 14px;
+                            line-height: 1.4;
+                        ">Please complete the security verification to continue</p>
+                    </div>
+                    
+                    <div class="turnstile-container" style="
+                        display: flex;
+                        justify-content: center;
+                        margin: 20px 0;
+                        min-height: 80px;
+                        align-items: center;
+                    ">
+                        <div id="turnstile-widget-${modalId}" class="cf-turnstile" data-sitekey="${siteKey}"></div>
+                    </div>
+                    
+                    <div class="loading-state" style="
+                        display: none;
+                        margin: 20px 0;
+                        color: #6b7280;
+                        font-size: 14px;
+                    ">
+                        <div style="
+                            display: inline-block;
+                            width: 20px;
+                            height: 20px;
+                            border: 2px solid #e5e7eb;
+                            border-radius: 50%;
+                            border-top: 2px solid #3b82f6;
+                            animation: spin 1s linear infinite;
+                            margin-right: 10px;
+                            vertical-align: middle;
+                        "></div>
+                        Setting up your account...
+                    </div>
+                    
+                    <div class="error-message" style="
+                        display: none;
+                        color: #dc2626;
+                        font-size: 14px;
+                        margin-top: 15px;
+                        padding: 10px;
+                        background-color: #fef2f2;
+                        border: 1px solid #fecaca;
+                        border-radius: 6px;
+                    "></div>
+                </div>
+            </div>
+            
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+
+        // Add modal to DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.getElementById(modalId);
+        const errorMessage = modal.querySelector('.error-message');
+        const loadingState = modal.querySelector('.loading-state');
+        const turnstileContainer = modal.querySelector('.turnstile-container');
+        
+        // Initialize Turnstile widget
+        const initTurnstile = () => {
+            if (!window.turnstile) {
+                setTimeout(initTurnstile, 100);
+                return;
+            }
+
+            try {
+                window.turnstile.render(`#turnstile-widget-${modalId}`, {
+                    sitekey: siteKey,
+                    callback: function(token) {
+                        // Show loading state
+                        turnstileContainer.style.display = 'none';
+                        loadingState.style.display = 'block';
+                        
+                        // Call success callback
+                        options.onSuccess(token);
+                        
+                        // Remove modal after a brief delay
+                        setTimeout(() => {
+                            modal.remove();
+                            resolve();
+                        }, 500);
+                    },
+                    'expired-callback': function() {
+                        showError('Verification expired. Please try again.');
+                    },
+                    'error-callback': function() {
+                        showError('Verification failed. Please refresh the page and try again.');
+                        options.onError('Turnstile verification failed');
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to initialize Turnstile:', error);
+                showError('Failed to load security verification. Please refresh the page.');
+                options.onError(error);
+            }
+        };
+
+        const showError = (message) => {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        };
+
+        // Start initialization
+        initTurnstile();
+        
+        // Prevent modal from closing by clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                // Don't close - force users to complete verification
+                turnstileContainer.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    if (turnstileContainer) {
+                        turnstileContainer.style.transform = 'scale(1)';
+                    }
+                }, 200);
+            }
+        });
+        
+        // Add transition styles
+        modal.style.opacity = '0';
+        modal.style.transition = 'opacity 0.3s ease';
+        
+        // Fade in
+        requestAnimationFrame(() => {
+            modal.style.opacity = '1';
+        });
+    });
+};
+
 window.initgui = async function(options){
     const url = new URL(window.location).href;
     window.url = url;
@@ -227,6 +421,14 @@ window.initgui = async function(options){
     await launch_services(options);
 
     //--------------------------------------------------------------------------------------
+    // Is attempt_temp_user_creation?
+    // i.e. https://puter.com/?attempt_temp_user_creation=true
+    //--------------------------------------------------------------------------------------
+    if(window.url_query_params.has('attempt_temp_user_creation') && (window.url_query_params.get('attempt_temp_user_creation') === 'true' || window.url_query_params.get('attempt_temp_user_creation') === '1')){
+        window.attempt_temp_user_creation = true;
+    }
+
+    //--------------------------------------------------------------------------------------
     // Is GUI embedded in a popup?
     // i.e. https://puter.com/?embedded_in_popup=true
     //--------------------------------------------------------------------------------------
@@ -249,7 +451,7 @@ window.initgui = async function(options){
         // this is the referrer in terms of user acquisition
         window.referrerStr = window.openerOrigin;
 
-        if(action === 'sign-in' && !window.is_auth()){
+        if(action === 'sign-in' && !window.is_auth() && !(window.attempt_temp_user_creation && window.first_visit_ever)){
             // show signup window
             if(await UIWindowSignup({
                 reload_on_success: false,
@@ -262,7 +464,7 @@ window.initgui = async function(options){
             }))
                 await window.getUserAppToken(window.openerOrigin);
         }
-        else if(action === 'sign-in' && window.is_auth()){
+        else if(action === 'sign-in' && window.is_auth() && !(window.attempt_temp_user_creation && window.first_visit_ever)){
             picked_a_user_for_sdk_login = await UIWindowSessionList({
                 reload_on_success: false,
                 draggable_body: false,
@@ -790,7 +992,7 @@ window.initgui = async function(options){
             UIWindowSessionList();
         }
         else{
-            const resp = await fetch(puter.defaultGUIOrigin + '/whoarewe');
+            const resp = await fetch(window.gui_origin + '/whoarewe');
             const whoarewe = await resp.json();
             await UIWindowLogin({
                 // show_signup_button: 
@@ -805,7 +1007,7 @@ window.initgui = async function(options){
     }
 
     // -------------------------------------------------------------------------------------
-    // Un-authed and first visit ever -> create temp user
+    // Un-authed and first visit ever -> create temp user with Turnstile challenge
     // -------------------------------------------------------------------------------------
     else if(!window.is_auth() && window.first_visit_ever && !window.disable_temp_users){
         let referrer;
@@ -830,30 +1032,78 @@ window.initgui = async function(options){
         let headers = {};
         if(window.custom_headers)
             headers = window.custom_headers;
-        $.ajax({
-            url: window.gui_origin + "/signup",
-            type: 'POST',
-            async: true,
-            headers: headers,
-            contentType: "application/json",
-            data: JSON.stringify({
+
+        // Function to create temp user after captcha completion
+        const createTempUser = (turnstileToken) => {
+            // if this is a popup, show a spinner
+            let spinner_init_ts = Date.now();
+            if(window.embedded_in_popup){
+                puter.ui.showSpinner('<span style="-webkit-font-smoothing: antialiased;">Setting up your <a href="https://puter.com" target="_blank">Puter.com</a> account for secure AI and Cloud features</span>');
+            }
+
+            const requestData = {
                 referrer: referrer,
                 referral_code: window.referral_code,
                 is_temp: true,
-            }),
-            success: async function (data){
-                window.update_auth_data(data.token, data.user);
-                document.dispatchEvent(new Event("login", { bubbles: true}));
-            },
-            error: function (err){
-                UIAlert({
-                    message: html_encode(err.responseText),
-                });
+            };
+
+            // Add Turnstile token if available
+            if (turnstileToken) {
+                requestData['cf-turnstile-response'] = turnstileToken;
             }
-        });
+
+            $.ajax({
+                url: window.gui_origin + "/signup",
+                type: 'POST',
+                async: true,
+                headers: headers,
+                contentType: "application/json",
+                data: JSON.stringify(requestData),
+                success: async function (data){
+                    // if this is a popup, hide the spinner, make sure it was visible for at least 2 seconds
+                    if(window.embedded_in_popup){
+                        let spinner_duration = (Date.now() - spinner_init_ts);
+                        setTimeout(() => {
+                            window.update_auth_data(data.token, data.user);
+                            document.dispatchEvent(new Event("login", { bubbles: true}));        
+                            puter.ui.hideSpinner();
+                        }, spinner_duration > 2000 ? 10 : 2000 - spinner_duration);
+
+                        return;
+                    }else{
+                        window.update_auth_data(data.token, data.user);
+                        document.dispatchEvent(new Event("login", { bubbles: true}));
+                    }
+                },
+                error: async (err) => {
+                    UIAlert({
+                        message: html_encode(err.responseText),
+                    });
+                },
+                complete: function(){
+                    
+                }
+            });
+        };
+
+        // Check if Turnstile is enabled and show challenge
+        if (window.gui_params?.turnstileSiteKey) {
+            window.showTurnstileChallenge({
+                onSuccess: createTempUser,
+                onError: (error) => {
+                    console.error('Turnstile verification failed:', error);
+                    UIAlert({
+                        message: 'Security verification failed. Please refresh the page and try again.',
+                    });
+                }
+            });
+        } else {
+            // No Turnstile configured, proceed without challenge
+            createTempUser();
+        }
     }
 
-    // if there is at least one window open (only non-Explorer windows), ask user for confirmation when navigating away
+    // if there is at least one window open (only non-Explorer windows), ask user for confirmation when navigating away from puter
     if(window.feature_flags.prompt_user_when_navigation_away_from_puter){
         window.onbeforeunload = function(){
             if($(`.window:not(.window[data-app="explorer"])`).length > 0)
@@ -1210,9 +1460,13 @@ window.initgui = async function(options){
     //--------------------------------------------------------
     $(document).on('mousedown', function(e){
         // if taskbar or any parts of it is clicked, drop the event
-        if($(e.target).hasClass('taskbar') || $(e.target).closest('.taskbar').length > 0)
+        if($(e.target).hasClass('taskbar') || $(e.target).closest('.taskbar').length > 0){
             return;
-
+        }
+        // if toolbar or any parts of it is clicked, drop the event
+        if($(e.target).hasClass('toolbar') || $(e.target).closest('.toolbar').length > 0){
+            return;
+        }
         // if mouse is clicked on a window, activate it
         if(window.mouseover_window !== undefined){
             // if popover clicked on, don't activate window. This is because if an app 
@@ -1426,3 +1680,11 @@ $(document).on('contextmenu', '.disable-context-menu', function(e){
 
 // util/desktop.js
 window.privacy_aware_path = privacy_aware_path({ window });
+
+$(window).on('system-logout-event', function(){
+    // Clear cookie
+    document.cookie = 'puter=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    // Redirect to clean URL without any query parameters
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.location.replace(cleanUrl);
+});

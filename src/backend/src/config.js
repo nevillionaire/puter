@@ -51,6 +51,13 @@ config.require_email_verification_to_publish_website = false;
 config.kv_max_key_size = 1024;
 config.kv_max_value_size = 400 * 1024;
 
+// Captcha configuration
+config.captcha = {
+    enabled: false,                 // Enable captcha by default
+    expirationTime: 10 * 60 * 1000, // 10 minutes default expiration time
+    difficulty: 'medium'            // Default difficulty level
+};
+
 config.monitor = {
     metricsInterval: 60000,
     windowSize: 30,
@@ -90,6 +97,10 @@ config.puter_hosted_data = {
 // words that cannot be used by others as subdomains or app names
 // config.reserved_words = reserved_words;
 config.reserved_words = [];
+
+{
+    config.reserved_words.push(...require('./config/reserved_words'));
+}
 
 // set default S3 settings for this server, if any
 if (config.server_id) {
@@ -196,8 +207,6 @@ const config_pointer = {};
             if (prop in target) {
                 return target[prop];
             } else {
-                // console.log('implied', prop,
-                //     'to', get_implied(config_to_export, prop));
                 return get_implied(config_to_export, prop);
             }
         }
@@ -210,8 +219,26 @@ const config_pointer = {};
     const config_runtime_values = {
         $: 'runtime-values'
     };
+    let initialPrototype = config_to_export;
     Object.setPrototypeOf(config_runtime_values, config_to_export);
     config_to_export = config_runtime_values
+    
+    config_to_export.__set_config_object__ = (object, options = {}) => {
+        // options for this method
+        const replacePrototype = options.replacePrototype ?? true;
+        const useInitialPrototype = options.useInitialPrototype ?? true;
+        
+        // maybe replace prototype
+        if ( replacePrototype ) {
+            const newProto = useInitialPrototype
+                ? initialPrototype
+                : Object.getPrototypeOf(config_runtime_values);
+            Object.setPrototypeOf(object, newProto);
+        }
+        
+        // use this object as the prototype
+        Object.setPrototypeOf(config_runtime_values, object);
+    };
 
     // These can be difficult to find and cause painful
     // confusing issues, so we log any time this happens
@@ -221,7 +248,6 @@ const config_pointer = {};
                 '\x1B[36;1mCONFIGURATION MUTATED AT RUNTIME\x1B[0m',
                 prop, 'to', value
             );
-            // console.log(new Error('stack trace to find configuration mutation'));
             target[prop] = value;
             return true;
         }

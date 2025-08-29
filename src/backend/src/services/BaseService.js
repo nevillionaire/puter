@@ -54,7 +54,10 @@ class BaseService extends concepts.Service {
             this.global_config.server_id = 'local';
         }
     }
-
+    
+    async run_as_early_as_possible () {
+        await (this._run_as_early_as_possible || NOOP).call(this, this.args);
+    }
 
     /**
     * Creates the service's data structures and initial values.
@@ -85,7 +88,11 @@ class BaseService extends concepts.Service {
     */
     async init () {
         const services = this.services;
-        this.log = services.get('log-service').create(this.service_name);
+        const log_fields = {};
+        if ( this.constructor.CONCERN ) {
+            log_fields.concern = this.constructor.CONCERN;
+        }
+        this.log = services.get('log-service').create(this.service_name, log_fields);
         this.errors = services.get('error-service').create(this.log);
 
         await (this._init || NOOP).call(this, this.args);

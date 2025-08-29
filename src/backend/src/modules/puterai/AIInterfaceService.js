@@ -95,6 +95,7 @@ class AIInterfaceService extends BaseService {
                     description: 'Generate an image from a prompt.',
                     parameters: {
                         prompt: { type: 'string' },
+                        quality: { type: 'string' },
                     },
                     result_choices: [
                         {
@@ -125,7 +126,14 @@ class AIInterfaceService extends BaseService {
             methods: {
                 list_voices: {
                     description: 'List available voices.',
+                    parameters: {
+                        engine: { type: 'string', optional: true },
+                    },
+                },
+                list_engines: {
+                    description: 'List available TTS engines with pricing information.',
                     parameters: {},
+                    result: { type: 'json' },
                 },
                 synthesize: {
                     description: 'Synthesize speech from text.',
@@ -134,6 +142,7 @@ class AIInterfaceService extends BaseService {
                         voice: { type: 'string' },
                         language: { type: 'string' },
                         ssml: { type: 'flag' },
+                        engine: { type: 'string', optional: true },
                     },
                     result_choices: [
                         {

@@ -24,6 +24,7 @@ const api_error_handler = require('./api_error_handler.js');
 const APIError = require('../../../api/APIError.js');
 const { Context } = require('../../../util/context.js');
 const { subdomain } = require('../../../helpers.js');
+const config = require('../../../config.js');
 
 /**
  * eggspress() is a factory function for creating express routers.
@@ -169,6 +170,9 @@ module.exports = function eggspress (route, settings, handler) {
         return next();
       }
     }
+    if ( config.env === 'dev' ) {
+      console.log(`request url: ${req.url}, body: ${JSON.stringify(req.body)}`);
+    }
     try {
       const expected_ctx = res.locals.ctx;
       const received_ctx = Context.get(undefined, { allow_fallback: true });
@@ -179,24 +183,66 @@ module.exports = function eggspress (route, settings, handler) {
         });
       } else await handler(req, res, next);
     } catch (e) {
+        if ( config.env === 'dev' ) {
+          if (! (e instanceof APIError)) {
+            // Any non-APIError indicates an unhandled error (i.e. a bug) from the backend.
+            // We add a dedicated branch to facilitate debugging.
+              console.error(e);
+          }
+        }
         api_error_handler(e, req, res, next);
     }
   };
-
-  if ( settings.allowedMethods.includes('GET') ) {
+  if (settings.allowedMethods.includes('GET')) {
     router.get(route, ...mw, errorHandledHandler, ...afterMW);
   }
 
-  if ( settings.allowedMethods.includes('POST') ) {
+  if (settings.allowedMethods.includes('HEAD')) {
+    router.head(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('POST')) {
     router.post(route, ...mw, errorHandledHandler, ...afterMW);
   }
 
-  if ( settings.allowedMethods.includes('PUT') ) {
+  if (settings.allowedMethods.includes('PUT')) {
     router.put(route, ...mw, errorHandledHandler, ...afterMW);
   }
 
-  if ( settings.allowedMethods.includes('DELETE') ) {
+  if (settings.allowedMethods.includes('DELETE')) {
     router.delete(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('PROPFIND')) {
+    router.propfind(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('PROPPATCH')) {
+    router.proppatch(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('MKCOL')) {
+    router.mkcol(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('COPY')) {
+    router.copy(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('MOVE')) {
+    router.move(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('LOCK')) {
+    router.lock(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+
+  if (settings.allowedMethods.includes('UNLOCK')) {
+    router.unlock(route, ...mw, errorHandledHandler, ...afterMW);
+  }
+  
+  if (settings.allowedMethods.includes('OPTIONS')) {
+    router.options(route, ...mw, errorHandledHandler, ...afterMW);
   }
 
   return router;

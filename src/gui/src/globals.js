@@ -103,7 +103,7 @@ if (window.user_preferences === null) {
 }
 
 window.window_stack = []
-window.toolbar_height = 30;
+window.toolbar_height = 0;
 window.default_taskbar_height = 50;
 window.taskbar_height = window.default_taskbar_height;
 window.upload_progress_hide_delay = 500;
@@ -258,9 +258,26 @@ window.file_templates = []
 // default language
 window.locale = 'en';
 
-/* Menubar style
- * 'window' - menubar is part of the window
- * 'desktop' - menubar is part of the desktop
- * 'system' - menubar is determined by the system (e.g. Windows, macOS)
- */
-// window.menubar_style = 'desktop';
+// the transaction class
+window.Transaction = class {
+    constructor(name) {
+        this.name = name;
+        this.id = uuidv4();
+    }
+
+    start() {
+        this.start_ts = Date.now();
+    }
+
+    end() {
+        this.end_ts = Date.now();
+        this.duration = this.end_ts - this.start_ts;
+
+        // emit an event
+        window.dispatchEvent(new CustomEvent('transaction-ended', {
+            detail: {
+                transaction: this
+            }
+        }));
+    }
+}

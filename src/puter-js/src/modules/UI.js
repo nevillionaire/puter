@@ -1,6 +1,10 @@
 import FSItem from './FSItem.js';
 import PuterDialog from './PuterDialog.js';
 import EventListener  from '../lib/EventListener.js';
+import putility from '@heyputer/putility';
+
+const FILE_SAVE_CANCELLED = Symbol('FILE_SAVE_CANCELLED');
+const FILE_OPEN_CANCELLED = Symbol('FILE_OPEN_CANCELLED');
 
 // AppConnection provides an API for interacting with another app.
 // It's returned by UI methods, and cannot be constructed directly by user code.
@@ -42,7 +46,7 @@ class AppConnection extends EventListener {
         this.#isOpen = true;
         this.#usesSDK = usesSDK;
 
-        this.log = context.puter.log.fields({
+        this.log = context.puter.logger.fields({
             category: 'ipc',
         });
         this.log.fields({
@@ -53,7 +57,7 @@ class AppConnection extends EventListener {
 
         // TODO: Set this.#puterOrigin to the puter origin
 
-        window.addEventListener('message', event => {
+        (globalThis.document) && window.addEventListener('message', event => {
             if (event.data.msg === 'messageToApp') {
                 if (event.data.appInstanceID !== this.targetAppInstanceID) {
                     // Message is from a different AppConnection; ignore it.
@@ -261,7 +265,7 @@ class UI extends EventListener {
         }, '*');
 
         // When this app's window is focused send a message to the host environment
-        window.addEventListener('focus', (e) => {
+        (globalThis.document) && window.addEventListener('focus', (e) => {
             this.messageTarget?.postMessage({
                 msg: "windowFocused",
                 appInstanceID: this.appInstanceID,
@@ -270,7 +274,7 @@ class UI extends EventListener {
 
         // Bind the message event listener to the window
         let lastDraggedOverElement = null;
-        window.addEventListener('message', async (e) => {
+        (globalThis.document) && window.addEventListener('message', async (e) => {
             // `error`
             if(e.data.error){
                 throw e.data.error;
@@ -463,9 +467,21 @@ class UI extends EventListener {
                     // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.response); 
                 }
+                else if(e.data.msg === 'languageReceived'){
+                    // execute callback
+                    this.#callbackFunctions[e.data.original_msg_id](e.data.language); 
+                }
                 else if(e.data.msg === "fileSaved"){
                     // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](new FSItem(e.data.saved_file)); 
+                }
+                else if(e.data.msg === "fileSaveCancelled"){
+                    // execute callback
+                    this.#callbackFunctions[e.data.original_msg_id](FILE_SAVE_CANCELLED);
+                }
+                else if(e.data.msg === "fileOpenCancelled"){
+                    // execute callback
+                    this.#callbackFunctions[e.data.original_msg_id](FILE_OPEN_CANCELLED);
                 }
                 else{
                     // execute callback
@@ -520,7 +536,7 @@ class UI extends EventListener {
         // and the host environment needs to know the mouse position to show these elements correctly.
         // The host environment can't just get the mouse position since when the mouse is over an iframe it 
         // will not be able to get the mouse position. So we need to send the mouse position to the host environment.
-        document.addEventListener('mousemove', async (event)=>{
+        globalThis.document?.addEventListener('mousemove', async (event)=>{
             // Get the mouse position from the event object
             this.mouseX = event.clientX;
             this.mouseY = event.clientY;
@@ -535,7 +551,7 @@ class UI extends EventListener {
         });
 
         // click
-        document.addEventListener('click', async (event)=>{
+        globalThis.document?.addEventListener('click', async (event)=>{
             // Get the mouse position from the event object
             this.mouseX = event.clientX;
             this.mouseY = event.clientY;
@@ -563,7 +579,7 @@ class UI extends EventListener {
         // This should also be done only the very first time the callback is set (hence the if(!this.#onItemsOpened) check) since
         // the URL parameters will be checked every time the callback is set which can cause problems if the callback is set multiple times.
         if(!this.#onItemsOpened){
-            let URLParams = new URLSearchParams(window.location.search);
+            let URLParams = new URLSearchParams(globalThis.location.search);
             if(URLParams.has('puter.item.name') && URLParams.has('puter.item.uid') && URLParams.has('puter.item.read_url')){
                 let fpath = URLParams.get('puter.item.path');
 
@@ -591,7 +607,7 @@ class UI extends EventListener {
     // Check if the app was launched with items
     // This is useful for apps that are launched with items (e.g. when a file is opened with the app)
     wasLaunchedWithItems = function() {
-        const URLParams = new URLSearchParams(window.location.search);
+        const URLParams = new URLSearchParams(globalThis.location.search);
         return URLParams.has('puter.item.name') && 
                URLParams.has('puter.item.uid') && 
                URLParams.has('puter.item.read_url');
@@ -604,7 +620,7 @@ class UI extends EventListener {
         // This should also be done only the very first time the callback is set (hence the if(!this.#onLaunchedWithItems) check) since
         // the URL parameters will be checked every time the callback is set which can cause problems if the callback is set multiple times.
         if(!this.#onLaunchedWithItems){
-            let URLParams = new URLSearchParams(window.location.search);
+            let URLParams = new URLSearchParams(globalThis.location.search);
             if(URLParams.has('puter.item.name') && URLParams.has('puter.item.uid') && URLParams.has('puter.item.read_url')){
                 let fpath = URLParams.get('puter.item.path');
 
@@ -629,6 +645,12 @@ class UI extends EventListener {
         this.#onLaunchedWithItems = callback;
     }
 
+    requestEmailConfirmation = function() {
+        return new Promise((resolve, reject) => {
+            this.#postMessageWithCallback('requestEmailConfirmation', resolve, {  });
+        });
+    }
+
     alert = function(message, buttons, options, callback) {
         return new Promise((resolve) => {
             this.#postMessageWithCallback('ALERT', resolve, { message, buttons, options });
@@ -648,7 +670,10 @@ class UI extends EventListener {
     }
 
     showDirectoryPicker = function(options, callback){
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            if (!globalThis.open) {
+                return reject("This API is not compatible in Web Workers.");
+            }
             const msg_id = this.#messageID++;
             if(this.env === 'app'){
                 this.messageTarget?.postMessage({
@@ -675,7 +700,11 @@ class UI extends EventListener {
     }
 
     showOpenFilePicker = function(options, callback){
-        return new Promise((resolve) => {
+        const undefinedOnCancel = new putility.libs.promise.TeePromise();
+        const resolveOnlyPromise = new Promise((resolve, reject) => {
+            if (!globalThis.open) {
+                return reject("This API is not compatible in Web Workers.");
+            }
             const msg_id = this.#messageID++;
 
             if(this.env === 'app'){
@@ -697,8 +726,18 @@ class UI extends EventListener {
                 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
             }
             //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#callbackFunctions[msg_id] = (maybe_result) => {
+                // Only resolve cancel events if this was called with `.undefinedOnCancel`
+                if ( maybe_result === FILE_OPEN_CANCELLED ) {
+                    undefinedOnCancel.resolve(undefined);
+                    return;
+                }
+                undefinedOnCancel.resolve(maybe_result);
+                resolve(maybe_result);
+            };
         })
+        resolveOnlyPromise.undefinedOnCancel = undefinedOnCancel;
+        return resolveOnlyPromise;
     }
 
     showFontPicker = function(options){
@@ -713,17 +752,27 @@ class UI extends EventListener {
         })
     }
 
-    showSaveFilePicker = function(content, suggestedName){
-        return new Promise((resolve) => {
+    showSaveFilePicker = function(content, suggestedName, type){
+        const undefinedOnCancel = new putility.libs.promise.TeePromise();
+        const resolveOnlyPromise = new Promise((resolve, reject) => {
+            if (!globalThis.open) {
+                return reject("This API is not compatible in Web Workers.");
+            }
             const msg_id = this.#messageID++;
-            const url = (Object.prototype.toString.call(content) === '[object URL]' ? content : undefined);
-
+            if ( ! type && Object.prototype.toString.call(content) === '[object URL]' ) {
+                type = 'url';
+            }
+            const url = type === 'url' ? content.toString() : undefined;
+            const source_path = ['move','copy'].includes(type) ? content : undefined;
+            
             if(this.env === 'app'){
                 this.messageTarget?.postMessage({
                     msg: "showSaveFilePicker",
                     appInstanceID: this.appInstanceID,
                     content: url ? undefined : content,
-                    url: url ? url.toString() : undefined,
+                    save_type: type,
+                    url,
+                    source_path,
                     suggestedName: suggestedName ?? '',
                     env: this.env,
                     uuid: msg_id
@@ -761,8 +810,20 @@ class UI extends EventListener {
                 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
             }
             //register callback
-            this.#callbackFunctions[msg_id] = resolve;
-        })
+            this.#callbackFunctions[msg_id] = (maybe_result) => {
+                // Only resolve cancel events if this was called with `.undefinedOnCancel`
+                if ( maybe_result === FILE_SAVE_CANCELLED ) {
+                    undefinedOnCancel.resolve(undefined);
+                    return;
+                }
+                undefinedOnCancel.resolve(maybe_result);
+                resolve(maybe_result);
+            };
+        });
+        
+        resolveOnlyPromise.undefinedOnCancel = undefinedOnCancel;
+        
+        return resolveOnlyPromise;
     }
 
     setWindowTitle = function(title, window_id, callback) {
@@ -1031,16 +1092,52 @@ class UI extends EventListener {
     }
 
     // Returns a Promise<AppConnection>
-    launchApp = async function launchApp(app_name, args, callback) {
+    /**
+     * launchApp opens the specified app in Puter with the specified argumets.
+     * @param {*} nameOrOptions - name of the app as a string, or an options object
+     * @param {*} args - named parameters that will be passed to the app as arguments
+     * @param {*} callback - in case you don't want to use `await` or `.then()`
+     * @returns 
+     */
+    launchApp = async function launchApp(nameOrOptions, args, callback) {
         let pseudonym = undefined;
-        if ( app_name.includes('#(as)') ) {
+        let file_paths = undefined;
+        let items = undefined;
+        let app_name = nameOrOptions; // becomes string after branch below
+        
+        // Handle case where app_name is an options object
+        if (typeof app_name === 'object' && app_name !== null) {
+            const options = app_name;
+            app_name = options.name || options.app_name;
+            file_paths = options.file_paths;
+            args = args || options.args;
+            callback = callback || options.callback;
+            pseudonym = options.pseudonym;
+            items = options.items;
+        }
+        
+        if ( items ) {
+            if ( ! Array.isArray(items) ) items = [];
+            for ( let i=0 ; i < items.length ; i++ ) {
+                if ( items[i] instanceof FSItem ) {
+                    items[i] = items[i]._internalProperties.file_signature;
+                }
+            }
+        }
+        
+        if ( app_name && app_name.includes('#(as)') ) {
             [app_name, pseudonym] = app_name.split('#(as)');
         }
+        
+        if ( ! app_name ) app_name = puter.appName;
+        
         const app_info = await this.#ipc_stub({
             method: 'launchApp',
             callback,
             parameters: {
                 app_name,
+                file_paths,
+                items,
                 pseudonym,
                 args,
             },
@@ -1307,7 +1404,7 @@ class UI extends EventListener {
     #showTime = null;
     #hideTimeout = null;
 
-    showSpinner() {
+    showSpinner(html) {
         if (this.#overlayActive) return;
     
         // Create and add stylesheet for spinner if it doesn't exist
@@ -1330,6 +1427,7 @@ class UI extends EventListener {
                     font-size: 16px;
                     margin-top: 10px;
                     text-align: center;
+                    width: 100%;
                 }
     
                 @keyframes spin {
@@ -1342,10 +1440,11 @@ class UI extends EventListener {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    width: 120px; 
-                    height: 120px; 
+                    min-height: 120px; 
                     background: #ffffff; 
                     border-radius: 10px;
+                    padding: 20px;
+                    min-width: 120px;
                 }
             `;
             document.head.appendChild(styleSheet);
@@ -1377,7 +1476,7 @@ class UI extends EventListener {
         // Add spinner and text
         container.innerHTML = `
             <div class="puter-loading-spinner"></div>
-            <div class="puter-loading-text">Working...</div>
+            <div class="puter-loading-text">${html ?? 'Working...'}</div>
         `;
         
         overlay.appendChild(container);
@@ -1430,6 +1529,26 @@ class UI extends EventListener {
 
     isWorkingActive() {
         return this.#overlayActive;
+    }
+
+    /**
+     * Gets the current language/locale code (e.g., 'en', 'fr', 'es').
+     * 
+     * @returns {Promise<string>} A promise that resolves with the current language code.
+     * 
+     * @example
+     * const currentLang = await puter.ui.getLanguage();
+     * console.log(`Current language: ${currentLang}`); // e.g., "Current language: fr"
+     */
+    getLanguage() {
+        // In GUI environment, access the global locale directly
+        if(this.env === 'gui'){
+            return window.locale;
+        }
+
+        return new Promise((resolve) => {
+            this.#postMessageWithCallback('getLanguage', resolve, {});
+        });
     }
 }
 
