@@ -55,7 +55,12 @@ class ClaudeService extends BaseService {
     */
     async _init () {
         this.anthropic = new Anthropic({
-            apiKey: this.config.apiKey
+            apiKey: this.config.apiKey,
+            // 10 minutes is the default; we need to override the timeout to
+            // disable an "aggressive" preemptive error that's thrown
+            // erroneously by the SDK.
+            // (https://github.com/anthropics/anthropic-sdk-typescript/issues/822)
+            timeout: 10 * 60 * 1001,
         });
 
         const svc_aiChat = this.services.get('ai-chat');
@@ -337,6 +342,19 @@ class ClaudeService extends BaseService {
     */
     async models_ () {
         return [
+            {
+                id: 'claude-sonnet-4-5-20250929',
+                aliases: ['claude-sonnet-4.5', 'claude-sonnet-4-5'],
+                name: 'Claude Sonnet 4.5',
+                context: 200000,
+                cost: {
+                    currency: 'usd-cents',
+                    tokens: 1_000_000,
+                    input: 300,
+                    output: 1500,
+                },
+                max_tokens: 64000,
+            },
             {
                 id: 'claude-opus-4-1-20250805',
                 aliases: ['claude-opus-4-1'],

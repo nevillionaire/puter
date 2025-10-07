@@ -413,13 +413,108 @@ class AI{
         }
 
         // if model starts with: 
-        //      meta-llama/
-        //      google/
+        //      agentica-org/
+        //      ai21/
+        //      aion-labs/
+        //      alfredpros/
+        //      alpindale/
+        //      amazon/
+        //      anthracite-org/
+        //      arcee-ai/
+        //      arliai/
+        //      baidu/
+        //      bytedance/
+        //      cognitivecomputations/
+        //      cohere/
         //      deepseek/
-        //      x-ai/
+        //      eleutherai/
+        //      google/
+        //      gryphe/
+        //      inception/
+        //      infermatic/
+        //      liquid/
+        //      mancer/
+        //      meta-llama/
+        //      microsoft/
+        //      minimax/
+        //      mistralai/
+        //      moonshotai/
+        //      morph/
+        //      neversleep/
+        //      nousresearch/
+        //      nvidia/
+        //      openrouter/
+        //      perplexity/
+        //      pygmalionai/
         //      qwen/
+        //      raifle/
+        //      rekaai/
+        //      sao10k/
+        //      sarvamai/
+        //      scb10x/
+        //      shisa-ai/
+        //      sophosympatheia/
+        //      switchpoint/
+        //      tencent/
+        //      thedrummer/
+        //      thudm/
+        //      tngtech/
+        //      undi95/
+        //      x-ai/
+        //      z-ai/   
+
         // prepend it with openrouter:
-        if ( requestParams.model.startsWith('meta-llama/') || requestParams.model.startsWith('google/') || requestParams.model.startsWith('deepseek/') || requestParams.model.startsWith('x-ai/') || requestParams.model.startsWith('qwen/') ) {
+        if ( 
+            requestParams.model.startsWith('agentica-org/') ||
+            requestParams.model.startsWith('ai21/') ||
+            requestParams.model.startsWith('aion-labs/') ||
+            requestParams.model.startsWith('alfredpros/') ||
+            requestParams.model.startsWith('alpindale/') ||
+            requestParams.model.startsWith('amazon/') ||
+            requestParams.model.startsWith('anthracite-org/') ||
+            requestParams.model.startsWith('arcee-ai/') ||
+            requestParams.model.startsWith('arliai/') ||
+            requestParams.model.startsWith('baidu/') ||
+            requestParams.model.startsWith('bytedance/') ||
+            requestParams.model.startsWith('cognitivecomputations/') ||
+            requestParams.model.startsWith('cohere/') ||
+            requestParams.model.startsWith('deepseek/') || 
+            requestParams.model.startsWith('eleutherai/') ||
+            requestParams.model.startsWith('google/') || 
+            requestParams.model.startsWith('gryphe/') ||
+            requestParams.model.startsWith('inception/') ||
+            requestParams.model.startsWith('infermatic/') ||
+            requestParams.model.startsWith('liquid/') ||
+            requestParams.model.startsWith('mancer/') ||
+            requestParams.model.startsWith('meta-llama/') ||
+            requestParams.model.startsWith('microsoft/') ||
+            requestParams.model.startsWith('minimax/') ||
+            requestParams.model.startsWith('mistralai/') ||
+            requestParams.model.startsWith('moonshotai/') ||
+            requestParams.model.startsWith('morph/') ||
+            requestParams.model.startsWith('neversleep/') ||
+            requestParams.model.startsWith('nousresearch/') ||
+            requestParams.model.startsWith('nvidia/') ||
+            requestParams.model.startsWith('openrouter/') ||
+            requestParams.model.startsWith('perplexity/') ||
+            requestParams.model.startsWith('pygmalionai/') ||
+            requestParams.model.startsWith('qwen/') || 
+            requestParams.model.startsWith('raifle/') ||
+            requestParams.model.startsWith('rekaai/') ||
+            requestParams.model.startsWith('sao10k/') ||
+            requestParams.model.startsWith('sarvamai/') ||
+            requestParams.model.startsWith('scb10x/') ||
+            requestParams.model.startsWith('shisa-ai/') ||
+            requestParams.model.startsWith('sophosympatheia/') ||
+            requestParams.model.startsWith('switchpoint/') ||
+            requestParams.model.startsWith('tencent/') ||
+            requestParams.model.startsWith('thedrummer/') ||
+            requestParams.model.startsWith('thudm/') ||
+            requestParams.model.startsWith('tngtech/') ||
+            requestParams.model.startsWith('undi95/') ||
+            requestParams.model.startsWith('x-ai/') || 
+            requestParams.model.startsWith('z-ai/')
+        ) {
             requestParams.model = 'openrouter:' + requestParams.model;
         }
 
@@ -509,6 +604,31 @@ class AI{
         }).call(this, requestParams);
     }
 
+    /**
+     * Generate images from text prompts or perform image-to-image generation
+     * 
+     * @param {string|object} prompt - Text prompt or options object
+     * @param {object|boolean} [options] - Generation options or test mode flag
+     * @param {string} [options.prompt] - Text description of the image to generate
+     * @param {string} [options.model] - Model to use (e.g., "gemini-2.5-flash-image-preview")
+     * @param {object} [options.ratio] - Image dimensions (e.g., {w: 1024, h: 1024})
+     * @param {string} [options.input_image] - Base64 encoded input image for image-to-image generation
+     * @param {string} [options.input_image_mime_type] - MIME type of input image (e.g., "image/png")
+     * @returns {Promise<Image>} Generated image object with src property
+     * 
+     * @example
+     * // Text-to-image
+     * const img = await puter.ai.txt2img("A beautiful sunset");
+     * 
+     * @example
+     * // Image-to-image
+     * const img = await puter.ai.txt2img({
+     *   prompt: "Transform this into a watercolor painting",
+     *   input_image: base64ImageData,
+     *   input_image_mime_type: "image/png",
+     *   model: "gemini-2.5-flash-image-preview"
+     * });
+     */
     txt2img = async (...args) => {
         let options = {};
         let testMode = false;
@@ -526,9 +646,24 @@ class AI{
         if (typeof args[1] === 'boolean' && args[1] === true) {
             testMode = true;
         }
-    
+
+        if (typeof args[0] === 'string' && typeof args[1] === "object") {
+            options = args[1];
+            options.prompt = args[0];
+        }
+
+        if (typeof args[0] === 'object') {
+            options = args[0]
+        }
+
+        let AIService = "openai-image-generation"
+        if (options.model === "nano-banana") 
+            options.model = "gemini-2.5-flash-image-preview";
+
+        if (options.model === "gemini-2.5-flash-image-preview")
+            AIService = "gemini-image-generation";
         // Call the original chat.complete method
-        return await utils.make_driver_method(['prompt'], 'puter-image-generation', undefined, 'generate', {
+        return await utils.make_driver_method(['prompt'], 'puter-image-generation', AIService, 'generate', {
             responseType: 'blob',
             test_mode: testMode ?? false,
             transform: async blob => {

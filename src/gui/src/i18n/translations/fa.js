@@ -362,9 +362,7 @@ const fa = {
       "من کدهای بازیابی خود را در مکانی امن ذخیره کرده‌ام",
     setup2fa_5_confirmation_2: "آماده فعال کردن احراز هویت دو مرحله ای هستم",
     setup2fa_5_button: "فعال‌سازی احراز هویت دو مرحله‌ای",
-
-
-  // === 2FA Login ===
+    // === 2FA Login ===
     login2fa_otp_title: "کد احراز هویت دو مرحله‌ای را وارد کنید",
     login2fa_otp_instructions:
       "کد ۶ رقمی را از اپلیکیشن احراز هویت خود وارد کنید",
@@ -375,8 +373,7 @@ const fa = {
     login2fa_recovery_back: "بازگشت",
     login2fa_recovery_placeholder: "XXXXXXX",
 
-
-  // Sharing 
+    // Sharing 
     Editor: "ویرایشگر",
     Viewer: "مشاهده گر",
     "People with access": "افرادی که دسترسی دارند",
@@ -386,9 +383,7 @@ const fa = {
       "شما نمی‌توانید  با خودتان به اشتراک بگذارید",
     "This user already has access to this item":
       "این کاربر از قبل به این مورد دسترسی دارد",
-
-
-  // Billing
+    // Billing
     "billing.change_payment_method": "تغییر روش پرداخت",
     "billing.cancel": "لغو",
     "billing.download_invoice": "دانلود فاکتور",
@@ -435,8 +430,84 @@ const fa = {
     "billing.limited": "محدود",
     "billing.expanded": "گسترش یافته",
     "billing.accelerated": "تسریع شده",
-    "billing.enjoy_msg": "از %% فضای ذخیره‌سازی ابری به همراه سایر مزایا لذت ببرید."
-
+    "billing.enjoy_msg": "از %% فضای ذخیره‌سازی ابری به همراه سایر مزایا لذت ببرید.",
+    "confirm_code_generic_title": "کد تأیید را وارد کنید",
+    "choose_publishing_option": "انتخاب کنید که چگونه می‌خواهید وب‌سایت خود را منتشر کنید:",
+    "create_desktop_shortcut": "ایجاد میانبر (دسکتاپ)",
+    "create_desktop_shortcut_s": "ایجاد میانبرها (دسکتاپ)",
+    "create_shortcut_s": "ایجاد میانبرها",
+    "minimize": "کوچک‌کردن",
+    "reload_app": "بارگذاری دوباره برنامه",
+    "new_window": "پنجره جدید",
+    "open_trash": "باز کردن سطل زباله",
+    "pick_name_for_worker": "یک نام برای کارگر خود انتخاب کنید:",
+    "publish_as_serverless_worker": "انتشار به‌عنوان کارگر",
+    "toolbar.enter_fullscreen": "ورود به تمام‌صفحه",
+    "toolbar.github": "گیت‌هاب",
+    "toolbar.refer": "معرفی",
+    "toolbar.save_account": "ذخیره حساب",
+    "toolbar.search": "جستجو",
+    "toolbar.qrcode": "کد QR",
+    "used_of": "{{used}} استفاده شده از {{available}}",
+    "worker": "کارگر",
+    "billing.offering.basic": "پایه",
+    "too_many_attempts": "تعداد تلاش‌ها بیش از حد است. لطفاً بعداً دوباره امتحان کنید.",
+    "server_timeout": "پاسخ سرور بیش از حد طول کشید. لطفاً دوباره امتحان کنید.",
+    "signup_error": "خطایی هنگام ثبت‌نام رخ داد. لطفاً دوباره امتحان کنید.",
+    "welcome_title": "به کامپیوتر اینترنت شخصی خود خوش آمدید",
+    "welcome_description": "فایل‌ها را ذخیره کنید، بازی کنید، برنامه‌های عالی پیدا کنید و خیلی چیزهای دیگر! همه در یک مکان، در هر زمان و از هر کجا در دسترس.",
+    "welcome_get_started": "شروع کنید",
+    "welcome_terms": "شرایط",
+    "welcome_privacy": "حریم خصوصی",
+    "welcome_developers": "توسعه‌دهندگان",
+    "welcome_open_source": "متن‌باز",
+    "welcome_instant_login_title": "ورود فوری!",
+    "alert_error_title": "خطا!",
+    "alert_warning_title": "هشدار!",
+    "alert_info_title": "اطلاعات",
+    "alert_success_title": "موفقیت!",
+    "alert_confirm_title": "آیا مطمئن هستید؟",
+    "alert_yes": "بله",
+    "alert_no": "خیر",
+    "alert_retry": "تلاش دوباره",
+    "alert_cancel": "لغو",
+    "signup_confirm_password": "تأیید رمز عبور",
+    "login_email_username_required": "ایمیل یا نام کاربری لازم است",
+    "login_password_required": "رمز عبور لازم است",
+    "window_title_open": "باز کردن",
+    "window_title_change_password": "تغییر رمز عبور",
+    "window_title_select_font": "انتخاب فونت…",
+    "window_title_session_list": "لیست نشست‌ها!",
+    "window_title_set_new_password": "تنظیم رمز عبور جدید",
+    "window_title_instant_login": "ورود فوری!",
+    "window_title_publish_website": "انتشار وب‌سایت",
+    "window_title_publish_worker": "انتشار کارگر",
+    "window_title_authenticating": "در حال احراز هویت...",
+    "window_title_refer_friend": "معرفی یک دوست!",
+    "desktop_show_desktop": "نمایش دسکتاپ",
+    "desktop_show_open_windows": "نمایش پنجره‌های باز",
+    "desktop_exit_full_screen": "خروج از تمام‌صفحه",
+    "desktop_enter_full_screen": "ورود به تمام‌صفحه",
+    "desktop_position": "موقعیت",
+    "desktop_position_left": "چپ",
+    "desktop_position_bottom": "پایین",
+    "desktop_position_right": "راست",
+    "item_shared_with_you": "یک کاربر این مورد را با شما به اشتراک گذاشته است.",
+    "item_shared_by_you": "شما این مورد را با حداقل یک کاربر دیگر به اشتراک گذاشته‌اید.",
+    "item_shortcut": "میانبر",
+    "item_associated_websites": "وب‌سایت مرتبط",
+    "item_associated_websites_plural": "وب‌سایت‌های مرتبط",
+    "no_suitable_apps_found": "هیچ برنامه مناسبی یافت نشد",
+    "window_click_to_go_back": "برای بازگشت کلیک کنید.",
+    "window_click_to_go_forward": "برای رفتن به جلو کلیک کنید.",
+    "window_click_to_go_up": "برای رفتن به یک پوشه بالاتر کلیک کنید.",
+    "window_title_public": "عمومی",
+    "window_title_videos": "ویدئوها",
+    "window_title_pictures": "تصاویر",
+    "window_title_puter": "Puter",
+    "window_folder_empty": "این پوشه خالی است",
+    "manage_your_subdomains": "زیر دامنه‌های خود را مدیریت کنید",
+    "open_containing_folder": "باز کردن پوشه شامل"
   },
 };
 

@@ -17,10 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//
-// Bryar Ghafoor کردوویە بە کوردی بڕیار غفور
-//
-
 const ku = {
   name: "کوردی",
   english_name: "Kurdish",
@@ -435,7 +431,83 @@ const ku = {
     "billing.limited": "Limited",
     "billing.expanded": "بڵاوکراوەتەوە",
     "billing.accelerated": "بە خێرایی",
-    "billing.enjoy_msg": "%% لە هەڵگرتنی هەور و سوودی تر وەربگرە"
+    "billing.enjoy_msg": "%% لە هەڵگرتنی هەور و سوودی تر وەربگرە",
+    "choose_publishing_option":  "هەڵبژێرە چۆن دەتەوێت وێب‌سایتەکەت بڵاوبکەیتەوە:", // In English: "Choose how you want to publish your website:"
+    "create_desktop_shortcut": "دروستکردنی کورتەڕەو (سەڕەکی دێسک‌تۆپ)", // In English: "Create Shortcut (Desktop)"
+    "create_desktop_shortcut_s":  "دروستکردنی کورتەڕەوەکان (سەڕەکی دێسک‌تۆپ)", // In English: "Create Shortcuts (Desktop)"
+    "create_shortcut_s": "دروستکردنی کورتەڕەوەکان", // In English: "Create Shortcuts"
+    "minimize": "بچووککردنەوە", // In English: "Minimize"
+    "reload_app": "ئەپلیکەیشن دووبارە بار بکە", // In English: "Reload App"
+    "new_window": "پەنجەرەی نوێ", // In English: "New Window"
+    "open_trash": "زبڵدانە بکەرەوە", // In English: "Open Trash"
+    "pick_name_for_worker": "ناوێک بۆ کارمەندەکەت هەلبژێرە", // In English: "Pick a name for your worker:"
+    "publish_as_serverless_worker": "بڵاوکردنەوە وەک کارمەند", // In English: "Publish as Worker"
+    "toolbar.enter_fullscreen": "بە تەواوی شاشە بچۆرە", // In English: "Enter Full Screen"
+    "toolbar.github": "GitHub", // In English: "GitHub"
+    "toolbar.refer": "بانگهێشت بکە", // In English: "Refer"
+    "toolbar.save_account": "هەژمار پاشەکەوت بکە", // In English: "Save Account"
+    "toolbar.search": "گەڕان", // In English: "Search"
+    "toolbar.qrcode": "کۆدی QR", // In English: "QR Code"
+    "used_of": "{{used}} بەکارهاتوو لە {{available}}", // In English: "{{used}} used of {{available}}"
+    "worker": "کارمەند", // In English: "Worker"
+    "billing.offering.basic": "بنەڕەتی", // In English: "Basic"
+    "too_many_attempts": "هەوڵی زۆر دراوە. تکایە دواتر دووبارە هەوڵ بدە.", // In English: "Too many attempts. Please try again later."
+    "server_timeout": "سێرڤەرەکە زۆر ماوەیەکی درێژ وەڵامی نەدا. تکایە دووبارە هەوڵ بدە.", // In English: "The server took too long to respond. Please try again."
+    "signup_error":  "هەڵەیەک ڕووی دا لە کاتی تۆماربووندا. تکایە دووبارە هەوڵبدە.", // In English: "An error occurred during signup. Please try again."
+    "welcome_title": "بەخێربێیت بۆ کۆمپیوتەری تایبەتی ئینتەرنێتی خۆت", // In English: "Welcome to your Personal Internet Computer"
+    "welcome_description": "پەڕگەکانت خەزن بکە، یارییەکان یاریدەبە، ئەپلیکەیشنی سەرسوڕهێنەر بدۆزەوە، و زۆر شتی تر! هەمووی لە شوێنێک، بە ئاسانی دەستگەیشتنی لە هەموو کاتێک و شوێنێک.", // In English: "Store files, play games, find awesome apps, and much more! All in one place, accessible from anywhere at any time."
+    "welcome_get_started":  "دەست پێبکە", // In English: "Get Started"
+    "welcome_terms": "مەرجەکان", // In English: "Terms"
+    "welcome_privacy": "تایبەتمەندی", // In English: "Privacy"
+    "welcome_developers": "گەشەپێدەرەکان", // In English: "Developers"
+    "welcome_open_source": "سەرچاوەی کراوە", // In English: "Open Source"
+    "welcome_instant_login_title": "چوونەژوورەوەی خێرا!", // In English: "Instant Login!"
+    "alert_error_title": "هەڵە", // In English: "Error!"
+    "alert_warning_title": "ئاگاداری", // In English: "Warning!"
+    "alert_info_title": "زانیاری", // In English: "Info"
+    "alert_success_title": "سەرکەوتن!", // In English: "Success!"
+    "alert_confirm_title": "دڵنیایت؟", // In English: "Are you sure?"
+    "alert_yes": "بەڵێ", // In English: "Yes"
+    "alert_no": "نەخێر", // In English: "No"
+    "alert_retry": "دووبارە هەوڵبدە", // In English: "Retry"
+    "alert_cancel": "هەڵوەشاندنەوە", // In English: "Cancel"
+    "signup_confirm_password": "دڵنیابوونەوەی وشەی نهێنی", // In English: "Confirm Password"
+    "login_email_username_required": "ئیمەیڵ یان ناوی بەکارهێنەر پێویستە", // In English: "Email or username is required"
+    "login_password_required": "وشەی نهێنی پێویستە", // In English: "Password is required"
+    "window_title_open": "کردنەوە", // In English: "Open"
+    "window_title_change_password":  "گۆڕینی وشەی نهێنی", // In English: "Change Password"
+    "window_title_select_font":  "فۆنت هەڵبژێرە", // In English: "Select font…"
+    "window_title_session_list": "لیستی دانیشتنەکان!", // In English: "Session List!"
+    "window_title_set_new_password": "وشەی نهێنی نوێ دابنێ", // In English: "Set New Password"
+    "window_title_instant_login": "چوونەژوورەوەی خێرا!", // In English: "Instant Login!"
+    "window_title_publish_website": "بڵاوکردنەوەی وێب‌سایت", // In English: "Publish Website"
+    "window_title_publish_worker": "بڵاوکردنەوەی کارمەند", // In English: "Publish Worker"
+    "window_title_authenticating": "پەسندکردنەوە", // In English: "Authenticating..."
+    "window_title_refer_friend": "هاوڕێک بانگهێشت بکە!", // In English: "Refer a friend!"
+    "desktop_show_desktop": "دێسک‌تۆپ پیشان بدە", // In English: "Show Desktop"
+    "desktop_show_open_windows": "پەنجەرە کراوەکان پیشان بدە", // In English: "Show Open Windows"
+    "desktop_exit_full_screen": "دەرچوون لە شاشەی پڕە", // In English: "Exit Full Screen"
+    "desktop_enter_full_screen": "چوونە شاشەی پڕە", // In English: "Enter Full Screen"
+    "desktop_position": "شوێن", // In English: "Position"
+    "desktop_position_left": "چەپ", // In English: "Left"
+    "desktop_position_bottom": "خوارەوە", // In English: "Bottom"
+    "desktop_position_right":  "ڕاست", // In English: "Right"
+    "item_shared_with_you": "بەکارهێنەرێک ئەم شتەیە لەگەڵ تۆ هاوبەش کردووە.", // In English: "A user has shared this item with you."
+    "item_shared_by_you": "تۆ ئەم شتە بە هەندێک بەکارهێنەرێکی تر هاوبەش کردووە.", // In English: "You have shared this item with at least one other user."
+    "item_shortcut": "کورتەڕەو", // In English: "Shortcut"
+    "item_associated_websites": "وێب‌سایتێکی پەیوەست", // In English: "Associated website"
+    "item_associated_websites_plural":  "وێب‌سایتە پەیوەستەکان", // In English: "Associated websites"
+    "no_suitable_apps_found": "هیچ ئەپێکی گونجاو نەدۆزرایەوە", // In English: "No suitable apps found"
+    "window_click_to_go_back": "کرتە بکە بۆ چوونە دواوە", // In English: "Click to go back."
+    "window_click_to_go_forward":  "کرتە بکە بۆ چوونە پێشەوە", // In English: "Click to go forward."
+    "window_click_to_go_up": "کرتە بکە بۆ چوونە بوخچەیەکی سەرەوە", // In English: "Click to go one directory up."
+    "window_title_public": "گشتی", // In English: "Public"
+    "window_title_videos": "ڤیدیۆ", // In English: "Videos"
+    "window_title_pictures": "وێنە", // In English: "Pictures"
+    "window_title_puter": "پوتێر", // In English: "Puter"
+    "window_folder_empty": "ئەم بوخچەیە بەتاڵە", // In English: "This folder is empty"
+    "manage_your_subdomains": "بەڕێوەبردنی ژێر دۆمەینەکانت", // In English: "Manage Your Subdomains"
+    "open_containing_folder": "کردنەوەی بوخچەیەکەی کە پەڕگەکە تێدایە", // In English: "Open Containing Folder"
   },
 };
 

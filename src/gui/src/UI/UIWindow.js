@@ -219,6 +219,29 @@ async function UIWindow(options) {
         if(user_set_url_params.length > 0)
             user_set_url_params = '?'+ user_set_url_params.join('&');
     }
+
+    // --------------------------------------------------------
+    // Panel
+    // --------------------------------------------------------
+    if(options.is_panel){
+        options.width = 400;
+        options.has_head = false;
+        options.show_in_taskbar = false;
+        options.is_resizable = false;
+        options.left = (window.innerWidth - options.width) + 'px';
+        options.width = options.width + 'px';
+        options.height = '100%';
+        options.top = 0;
+        options.right = '0 !important';
+        options.border_radius = '0px';
+        options.border = 'none';
+        options.box_shadow = 'none';
+        options.background_color = 'transparent';
+        options.is_visible = false;
+        options.position = 'absolute !important';
+        options.left = 'auto !important';
+    }
+
     h += `<div class="window window-active 
                         ${options.app === 'explorer' ? 'window-explorer' : ''}
                         ${options.cover_page ? 'window-cover-page' : ''}
@@ -258,9 +281,12 @@ async function UIWindow(options) {
                 data-user_set_url_params = "${html_encode(user_set_url_params)}"
                 data-initial_zindex = "${zindex}"
                 style=" z-index: ${zindex}; 
+                        ${options.right !== undefined ? 'right: ' + html_encode(options.right) +'; ':''}
+                        ${options.left !== undefined ? 'left: ' + html_encode(options.left) +'; ':''}
                         ${options.width !== undefined ? 'width: ' + html_encode(options.width) +'; ':''}
                         ${options.height !== undefined ? 'height: ' + html_encode(options.height) +'; ':''}
                         ${options.border_radius !== undefined ? 'border-radius: ' + html_encode(options.border_radius) +'; ':''}
+                        ${options.position !== undefined ? 'position: ' + html_encode(options.position) +'; ':''}
                     " 
                 >`;
         // window mask
@@ -601,7 +627,7 @@ async function UIWindow(options) {
     }
     // focus on this window and deactivate other windows
     if ( options.is_visible ) {
-        $(el_window).focusWindow();
+        $(el_window).focusWindow()
     }
 
     if (window.animate_window_opening) {
@@ -1115,7 +1141,7 @@ async function UIWindow(options) {
         // SIDEBAR sharing
         // --------------------------------------------------------
         if(options.is_dir && !isMobile.phone){
-            puter.fs.readdir('/').then(function(shared_users){
+            puter.fs.readdir({path: '/', consistency: 'eventual'}).then(function(shared_users){
                 let ht = '';
                 if(shared_users && shared_users.length - 1 > 0){
                     ht += `<h2 class="window-sidebar-title disable-user-select">Shared with me</h2>`;
@@ -1523,7 +1549,9 @@ async function UIWindow(options) {
                 el_window_app_iframe.contentWindow.postMessage({msg: "drop", x: (window.mouseX - rect.left), y: (window.mouseY - rect.top), items: items}, '*');
 
                 // bring focus to this window
-                $(el_window).focusWindow();
+                if (options.is_visible) {
+                    $(el_window).focusWindow()
+                }
             }
 
             // if this window is not a directory, cancel drop.
@@ -1666,8 +1694,9 @@ async function UIWindow(options) {
             clearTimeout(drag_enter_timeout);
             // If items are dragged over this window long enough, bring it to front
             drag_enter_timeout = setTimeout(function(){
-                // focus window
-                $(el_window).focusWindow();
+                if (options.is_visible) {
+                    $(el_window).focusWindow()
+                }
             }, 1400);
         },
         leave: function (dragsterEvent, event) {
@@ -1754,6 +1783,7 @@ async function UIWindow(options) {
         $(el_window).draggable({
             start: function(e, ui){
                 window.a_window_is_being_dragged = true;
+                $('.toolbar').css('pointer-events', 'none');
                 // if window is snapped, unsnap it and reset its position to where it was before snapping
                 if(options.is_resizable && window_is_snapped){
                     window_is_snapped = false;
@@ -1930,7 +1960,7 @@ async function UIWindow(options) {
     
                 $(el_window_app_iframe).css('pointer-events', 'all');
                 $('.window').css('pointer-events', 'initial');
-
+                $('.toolbar').css('pointer-events', 'auto');
                 // jqueryui changes the z-index automatically, if the stay_on_top flag is set
                 // make sure window stays on top with the initial zindex though
                 $(`.window[data-stay_on_top="true"]`).each(function(){
@@ -2336,7 +2366,10 @@ async function UIWindow(options) {
                 menu_items.push({
                     html: i18n('refresh'),
                     onClick: function(){
-                        refresh_item_container(el_window_body, options);
+                        refresh_item_container(el_window_body, {
+                            ...options,
+                            consistency: 'strong',
+                        });
                     }
                 })
                 // -------------------------------------------
@@ -3125,7 +3158,7 @@ window.update_window_path = async function(el_window, target_path){
         // system directories with custom icons and predefined names
         if(target_path === window.desktop_path){
             $(el_window).find('.window-head-icon').attr('src', window.icons['folder-desktop.svg']);
-            $(el_window).find('.window-head-title').text('Desktop')
+            $(el_window).find('.window-head-title').text(i18n('desktop'))
         }else if (target_path === window.home_path){
             $(el_window).find('.window-head-icon').attr('src', window.icons['folder-home.svg']);
             $(el_window).find('.window-head-title').text(i18n('home'))
@@ -3134,13 +3167,13 @@ window.update_window_path = async function(el_window, target_path){
             $(el_window).find('.window-head-title').text(i18n('documents'))
         }else if (target_path === window.public_path){
             $(el_window).find('.window-head-icon').attr('src', window.icons['folder-public.svg']);
-            $(el_window).find('.window-head-title').text(i18n('window_title_public'))
+            $(el_window).find('.window-head-title').text(i18n('public'))
         }else if (target_path === window.videos_path){
             $(el_window).find('.window-head-icon').attr('src', window.icons['folder-videos.svg']);
-            $(el_window).find('.window-head-title').text(i18n('window_title_videos'))
+            $(el_window).find('.window-head-title').text(i18n('videos'))
         }else if (target_path === window.pictures_path){
             $(el_window).find('.window-head-icon').attr('src', window.icons['folder-pictures.svg']);
-            $(el_window).find('.window-head-title').text(i18n('window_title_pictures'))
+            $(el_window).find('.window-head-title').text(i18n('pictures'))
         }// root folder of a shared user?
         else if((target_path.split('/').length - 1) === 1 && target_path !== '/'+window.user.username)
             $(el_window).find('.window-head-icon').attr('src', window.icons['shared.svg']);
@@ -3154,7 +3187,7 @@ window.update_window_path = async function(el_window, target_path){
     // /stat
     if(target_path !== '/'){
         try{
-            puter.fs.stat(target_path, function(fsentry){
+            puter.fs.stat({path: target_path, consistency: 'eventual'}).then(fsentry => {
                 $(el_window).removeClass('window-' + $(el_window).attr('data-uid'));
                 $(el_window).addClass('window-' + fsentry.id);
                 $(el_window).attr('data-uid', fsentry.id);
@@ -3162,9 +3195,21 @@ window.update_window_path = async function(el_window, target_path){
                 $(el_window).attr('data-sort_order', fsentry.sort_order ?? 'asc');
                 $(el_window).attr('data-layout', fsentry.layout ?? 'icons');
                 $(el_window_item_container).attr('data-uid', fsentry.id);
-                // title
+                // title - use i18n for system directories
                 if (target_path === window.home_path)
                     $(el_window).find('.window-head-title').text(i18n('home'))
+                else if (target_path === window.desktop_path)
+                    $(el_window).find('.window-head-title').text(i18n('desktop'))
+                else if (target_path === window.docs_path || target_path === window.documents_path)
+                    $(el_window).find('.window-head-title').text(i18n('documents'))
+                else if (target_path === window.pictures_path)
+                    $(el_window).find('.window-head-title').text(i18n('pictures'))
+                else if (target_path === window.videos_path)
+                    $(el_window).find('.window-head-title').text(i18n('videos'))
+                else if (target_path === window.public_path)
+                    $(el_window).find('.window-head-title').text(i18n('public'))
+                else if (target_path === window.trash_path)
+                    $(el_window).find('.window-head-title').text(i18n('trash'))
                 else
                     $(el_window).find('.window-head-title').text(fsentry.name);
                 // data-name
@@ -3571,6 +3616,23 @@ window.update_window_layout = function(el_window, layout){
         $(el_window).find('.window-navbar-layout-settings').attr('src', window.icons['layout-details.svg'])
         $(el_window).attr('data-layout', layout)
     }
+}
+
+$.fn.makeWindowVisible = function(options){
+    $(this).each(async function() {
+        if($(this).hasClass('window')){
+            $(this).show();
+            $(this).focusWindow();
+        }
+    })
+}
+
+$.fn.makeWindowInvisible = async function(options) {
+    $(this).each(async function() {
+        if($(this).hasClass('window')){
+            $(this).hide();
+        }
+    })
 }
 
 $.fn.showWindow = async function(options) {

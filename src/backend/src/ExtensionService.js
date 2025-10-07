@@ -36,7 +36,7 @@ class ExtensionServiceState extends AdvancedBase {
 
         this.extension = a[0].extension;
 
-        this.endpoints_ = [];
+        this.expressThings_ = [];
         
         // Values shared between the `extension` global and its service
         this.values = new Context();
@@ -66,7 +66,7 @@ class ExtensionServiceState extends AdvancedBase {
             ...(options.subdomain ? { subdomain: options.subdomain } : {}),
         });
     
-        this.endpoints_.push(endpoint);
+        this.expressThings_.push({ type: 'endpoint', value: endpoint });
     }
 }
 
@@ -77,7 +77,7 @@ class ExtensionServiceState extends AdvancedBase {
  */
 class ExtensionService extends BaseService {
     _construct () {
-        this.endpoints_ = [];
+        this.expressThings_ = [];
     }
     async _init (args) {
         this.state = args.state;
@@ -90,20 +90,27 @@ class ExtensionService extends BaseService {
         const db = this.services.get('database').get(DB_WRITE, 'extension');
         this.state.values.set('db', db);
 
-        // Propagate all events not from extensions to `core.`
+        // Propagate all events from Puter's event bus to extensions
         const svc_event = this.services.get('event');
         svc_event.on_all(async (key, data, meta = {}) => {
             meta.from_outside_of_extension = true;
 
-            // register for both `core.` and the extension name
-            const promises = [];
-            promises.push(
-                this.state.extension.emit(`core.${key}`, data, meta));
-            promises.push(
-                this.state.extension.emit(key, data, meta));
-            await Promise.all(promises);
+            await Context.sub({
+                extension_name: this.state.extension.name,
+            }).arun(async () => {
+                const promises = [
+                    // push event to the extension's event bus
+                    this.state.extension.emit(key, data, meta),
+                    // legacy: older extensions prefix "core." to events from Puter
+                    this.state.extension.emit(`core.${key}`, data, meta),
+                ];
+                // await this.state.extension.emit(key, data, meta);
+                await Promise.all(promises);
+            });
+            // await Promise.all(promises);
         });
 
+        // Propagate all events from extension to Puter's event bus
         this.state.extension.on_all(async (key, data, meta) => {
             if ( meta.from_outside_of_extension ) return;
             
@@ -141,13 +148,46 @@ class ExtensionService extends BaseService {
                 },
             });
         })();
-        console.log('set kv on', this.state.extension);
+
+        this.state.extension.emit('preinit');
+    }
+
+    async ['__on_boot.consolidation'] (...a) {
+        const svc_su = this.services.get('su');
+        await svc_su.sudo(async () => {
+            await this.state.extension.emit('init', {}, {
+                from_outside_of_extension: true,
+            });
+        });
+    }
+    async ['__on_boot.activation'] (...a) {
+        const svc_su = this.services.get('su');
+        await svc_su.sudo(async () => {
+            await this.state.extension.emit('activate', {}, {
+                from_outside_of_extension: true,
+            });
+        });
+    }
+    async ['__on_boot.ready'] (...a) {
+        const svc_su = this.services.get('su');
+        await svc_su.sudo(async () => {
+            await this.state.extension.emit('ready', {}, {
+                from_outside_of_extension: true,
+            });
+        });
     }
 
     ['__on_install.routes'] (_, { app }) {
         if ( ! this.state ) debugger;
-        for ( const endpoint of this.state.endpoints_ ) {
-            endpoint.attach(app);
+        for ( const thing of this.state.expressThings_ ) {
+            if ( thing.type === 'endpoint' ) {
+                thing.value.attach(app);
+                continue;
+            }
+            if ( thing.type === 'router' ) {
+                app.use(...thing.value);
+                continue;
+            }
         }
     }
 

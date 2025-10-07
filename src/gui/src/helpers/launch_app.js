@@ -141,7 +141,7 @@ const launch_app = async (options)=>{
         // if options.args.path is provided, use it as the path
         if(options.args?.path){
             // if args.path is provided, enforce the directory
-            let fsentry = await puter.fs.stat(options.args.path);
+            let fsentry = await puter.fs.stat({path: options.args.path, consistency: 'eventual'});
             if(!fsentry.is_dir){
                 let parent = path.dirname(options.args.path);
                 if(parent === options.args.path)
@@ -351,6 +351,23 @@ const launch_app = async (options)=>{
         if(app_info.metadata?.credentialless !== undefined && typeof app_info.metadata.credentialless === 'boolean')
             credentialless = app_info.metadata.credentialless;
 
+        // set_title_to_opened_file
+        // if set_title_to_opened_file is true, set the title to the opened file's name
+        if(app_info.metadata?.set_title_to_opened_file !== undefined && typeof app_info.metadata.set_title_to_opened_file === 'boolean' && app_info.metadata.set_title_to_opened_file === true)
+            title = options.file_path ? path.basename(options.file_path) : title;
+
+        // show_in_taskbar
+        let show_in_taskbar = app_info.background ? false : window_options?.show_in_taskbar;
+        if(window_options?.show_in_taskbar !== undefined)
+            show_in_taskbar = window_options.show_in_taskbar;
+
+        // has_head
+        let has_head = app_info.metadata?.has_head !== undefined ? app_info.metadata.has_head : window_options?.has_head;
+        if(app_info.metadata?.hide_titlebar !== undefined && typeof app_info.metadata.hide_titlebar === 'boolean' && app_info.metadata.hide_titlebar === true)
+            has_head = false;
+        if(window_options?.has_head !== undefined)
+            has_head = window_options.has_head;
+
         // open window
         el_win = UIWindow({
             element_uuid: uuid,
@@ -373,8 +390,8 @@ const launch_app = async (options)=>{
             ...(options.pseudonym ? {pseudonym: options.pseudonym} : {}),
             ...window_options,
             is_resizable: window_resizable,
-            has_head: ! hide_titlebar,
-            show_in_taskbar: app_info.background ? false : window_options?.show_in_taskbar,
+            has_head: has_head,
+            show_in_taskbar: show_in_taskbar,
         });
 
         // If the app is not in the background, show the window
@@ -422,7 +439,7 @@ const launch_app = async (options)=>{
             // Send any saved broadcasts to the new app
             globalThis.services.get('broadcast').sendSavedBroadcastsTo(uuid);
 
-            // If `window-active` is set (meanign the window is focused), focus the window one more time
+            // If `window-active` is set (meaning the window is focused), focus the window one more time
             // this is to ensure that the iframe is `definitely` focused and can receive keyboard events (e.g. keydown)
             if($(process.references.el_win).hasClass('window-active')){
                 $(process.references.el_win).focusWindow();

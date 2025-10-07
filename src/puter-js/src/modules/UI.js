@@ -275,6 +275,7 @@ class UI extends EventListener {
         // Bind the message event listener to the window
         let lastDraggedOverElement = null;
         (globalThis.document) && window.addEventListener('message', async (e) => {
+            if (!e.data) return;
             // `error`
             if(e.data.error){
                 throw e.data.error;
@@ -393,6 +394,12 @@ class UI extends EventListener {
                 let appDataItem = new FSItem(e.data.item);
                 if(e.data.original_msg_id && this.#callbackFunctions[e.data.original_msg_id]){
                     this.#callbackFunctions[e.data.original_msg_id](appDataItem);
+                }
+            }
+            // instancesOpenSucceeded
+            else if(e.data.msg === 'instancesOpenSucceeded'){
+                if(e.data.original_msg_id && this.#callbackFunctions[e.data.original_msg_id]){
+                    this.#callbackFunctions[e.data.original_msg_id](e.data.instancesOpen);
                 }
             }
             // readAppDataFileSucceeded
@@ -657,6 +664,12 @@ class UI extends EventListener {
         })
     }
 
+    instancesOpen = function(callback) {
+        return new Promise((resolve) => {
+            this.#postMessageWithCallback('getInstancesOpen', resolve, {  });
+        })
+    }
+
     socialShare = function(url, message, options, callback) {
         return new Promise((resolve) => {
             this.#postMessageWithCallback('socialShare', resolve, { url, message, options });
@@ -915,6 +928,18 @@ class UI extends EventListener {
         return new Promise((resolve) => {
             this.#postMessageWithCallback('setWindowX', resolve, { x, window_id });
         })
+    }
+
+    showWindow = function() {
+        this.#postMessageWithObject('showWindow');
+    }
+
+    hideWindow = function() {
+        this.#postMessageWithObject('hideWindow');
+    }
+
+    toggleWindow = function() {
+        this.#postMessageWithObject('toggleWindow');
     }
 
     setMenubar = function(spec) {
@@ -1541,9 +1566,12 @@ class UI extends EventListener {
      * console.log(`Current language: ${currentLang}`); // e.g., "Current language: fr"
      */
     getLanguage() {
-        // In GUI environment, access the global locale directly
+        // resolve with the current language code if in GUI environment
         if(this.env === 'gui'){
-            return window.locale;
+            // resolve with the current language code
+            return new Promise((resolve) => {
+                resolve(window.locale);
+            });
         }
 
         return new Promise((resolve) => {

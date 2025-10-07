@@ -30,6 +30,7 @@ import path from "../lib/path.js"
 import truncate_filename from '../helpers/truncate_filename.js';
 import launch_app from "../helpers/launch_app.js"
 import open_item from "../helpers/open_item.js"
+import mime from "../lib/mime.js";
 
 function UIItem(options){
     const matching_appendto_count = $(options.appendTo).length;
@@ -162,8 +163,29 @@ function UIItem(options){
 
         h += `</div>`;
 
+        // divider
+        h += `<div class="item-divider"></div>`;
         // name
-        h += `<pre class="item-name" data-item-id="${item_id}" title="${html_encode(options.name)}">${options.is_trash ? i18n('trash') : html_encode(truncate_filename(options.name))}</pre>`
+        let display_name = options.name;
+        // Use i18n for system directories
+        if (options.is_trash) {
+            display_name = i18n('trash');
+        } else if (options.path === window.desktop_path) {
+            display_name = i18n('desktop');
+        } else if (options.path === window.home_path) {
+            display_name = i18n('home');
+        } else if (options.path === window.docs_path || options.path === window.documents_path) {
+            display_name = i18n('documents');
+        } else if (options.path === window.pictures_path) {
+            display_name = i18n('pictures');
+        } else if (options.path === window.videos_path) {
+            display_name = i18n('videos');
+        } else if (options.path === window.public_path) {
+            display_name = i18n('public');
+        } else {
+            display_name = html_encode(truncate_filename(options.name));
+        }
+        h += `<pre class="item-name" data-item-id="${item_id}" title="${html_encode(options.name)}">${display_name}</pre>`
         // name editor
         h += `<textarea class="item-name-editor hide-scrollbar" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" data-gramm_editor="false">${html_encode(options.name)}</textarea>`
     h += `</div>`;
@@ -180,7 +202,7 @@ function UIItem(options){
     const el_item_name = document.querySelector(`#item-${item_id} > .item-name`);
     const el_item_icon = document.querySelector(`#item-${item_id} .item-icon`);
     const el_item_name_editor = document.querySelector(`#item-${item_id} > .item-name-editor`);
-    const is_trashed = $(el_item).attr('data-path').startsWith(window.trash_path + '/');
+    const is_trashed = ($(el_item).attr('data-path') || '').startsWith(window.trash_path + '/');
 
     // update parent window's explorer item count if applicable
     if(options.appendTo !== undefined){
@@ -279,8 +301,21 @@ function UIItem(options){
             // reset longer hover timeout and last window dragged over
             longer_hover_timeout = null;
             last_window_dragged_over = null;
+
+            window.an_item_is_being_dragged = true;
+            $('.toolbar').css('pointer-events', 'none');
         },
         drag: function(event, ui) {     
+            // Constrain item within desktop bounds
+            const minLeft = -50;
+            const maxLeft = window.desktop_width - 50;
+            const minTop = window.toolbar_height;
+            const maxTop = window.desktop_height + window.toolbar_height;
+            
+            // Apply constraints to ui.position
+            ui.position.left = Math.max(minLeft, Math.min(maxLeft, ui.position.left));
+            ui.position.top = Math.max(minTop, Math.min(maxTop, ui.position.top));
+            
             // Only show drag helpers if the item has been moved more than 5px
             if( Math.abs(ui.originalPosition.top - ui.offset.top) > 5
             ||
@@ -301,9 +336,13 @@ function UIItem(options){
 
             // Move other selected items
             for(let i=0; i < item_count - 1; i++){
+                // Apply same constraints to cloned items with their offset
+                const cloneLeft = Math.max(minLeft, Math.min(maxLeft, ui.position.left + 3 * (i+1)));
+                const cloneTop = Math.max(minTop, Math.min(maxTop, ui.position.top + 3 * (i+1)));
+                
                 $(other_selected_items[i]).css({
-                    'left': ui.position.left + 3 * (i+1),
-                    'top': ui.position.top + 3 * (i+1),
+                    'left': cloneLeft,
+                    'top': cloneTop,
                     'z-index': 999 - (i),
                     'opacity': 0.5 - i*0.1,
                 })
@@ -373,6 +412,8 @@ function UIItem(options){
             // reset longer hover timeout and last window dragged over
             clearTimeout(longer_hover_timeout);
             last_window_dragged_over = null;
+            window.an_item_is_being_dragged = false;
+            $('.toolbar').css('pointer-events', 'auto');
         }
     });
 
@@ -762,7 +803,7 @@ function UIItem(options){
         // Multiple items selected
         // -------------------------------------------------------
         if($selected_items.length > 1){
-            const are_trashed = $selected_items.attr('data-path').startsWith(window.trash_path + '/');
+            const are_trashed = ($selected_items.attr('data-path') || '').startsWith(window.trash_path + '/');
             menu_items = []
             // -------------------------------------------
             // Restore
@@ -842,6 +883,34 @@ function UIItem(options){
                     }
                 });
                 // -------------------------------------------
+                // Download as Tar
+                // -------------------------------------------
+                menu_items.push({
+                    html: i18n('download_as_tar'),
+                    onClick: async function(){
+                        let items = [];
+                        for (let index = 0; index < $selected_items.length; index++) {
+                            items.push($selected_items[index]);
+                        }
+
+                        window.tarItems(items, path.dirname($(el_item).attr('data-path')), true);
+                    }
+                });
+                // -------------------------------------------
+                // Tar
+                // -------------------------------------------
+                menu_items.push({
+                    html: i18n('tar'),
+                    onClick: async function(){
+                        let items = [];
+                        for (let index = 0; index < $selected_items.length; index++) {
+                            items.push($selected_items[index]);
+                        }
+
+                        window.tarItems(items, path.dirname($(el_item).attr('data-path')), false);
+                    }
+                });
+                // -------------------------------------------
                 // -
                 // -------------------------------------------
                 menu_items.push('-');
@@ -904,7 +973,7 @@ function UIItem(options){
                                 const element = $selected_items[index];
                                 await window.delete_item(element);
                             }
-                            const trash = await puter.fs.stat(window.trash_path);
+                            const trash = await puter.fs.stat({path: window.trash_path, consistency: 'eventual'});
 
                             // update other clients
                             if(window.socket){
@@ -1210,6 +1279,47 @@ function UIItem(options){
                 });                
             }
             // -------------------------------------------
+            // Set as Wallpaper
+            // -------------------------------------------
+            const mime_type = mime.getType($(el_item).attr('data-name'));
+            if(!is_trashed && !is_trash && !options.is_dir && mime_type.startsWith('image/')) {
+                menu_items.push({
+                    html: i18n('set_as_background'),
+                    onClick: async function () {
+                        const read_url = await puter.fs.sign(undefined, {uid: $(el_item).attr('data-uid'), action: 'read'});
+                        window.set_desktop_background({
+                            url: read_url.items.read_url,
+                            fit: window.desktop_bg_fit,
+                        });
+                         try{
+                            $.ajax({
+                                url: window.api_origin + "/set-desktop-bg",
+                                type: 'POST',
+                                data: JSON.stringify({ 
+                                    url: window.desktop_bg_url,
+                                    color: window.desktop_bg_color,
+                                    fit: window.desktop_bg_fit,
+                                }),
+                                async: true,
+                                contentType: "application/json",
+                                headers: {
+                                    "Authorization": "Bearer "+window.auth_token
+                                },
+                                statusCode: {
+                                    401: function () {
+                                        window.logout();
+                                    },
+                                },
+                            })
+                            $(el_window).close();
+                            resolve(true);    
+                        }catch(err){
+                            // Ignore
+                        }
+                    }
+                });
+            }
+            // -------------------------------------------
             // Zip
             // -------------------------------------------
             if(!is_trash && !is_trashed && !$(el_item).attr('data-path').endsWith('.zip')){
@@ -1229,6 +1339,29 @@ function UIItem(options){
                     onClick: async function(){
                         let filePath = $(el_item).attr('data-path');
                         window.unzipItem(filePath)
+                    }
+                })
+            }
+            // -------------------------------------------
+            // Tar
+            // -------------------------------------------
+            if(!is_trash && !is_trashed && !$(el_item).attr('data-path').endsWith('.tar')){
+                menu_items.push({
+                    html: i18n('tar'),
+                    onClick: function(){
+                        window.tarItems(el_item, path.dirname($(el_item).attr('data-path')), false);
+                    }
+                })
+            }
+            // -------------------------------------------
+            // Untar
+            // -------------------------------------------
+            if(!is_trash && !is_trashed && $(el_item).attr('data-path').endsWith('.tar')){
+                menu_items.push({
+                    html: i18n('untar'),
+                    onClick: async function(){
+                        let filePath = $(el_item).attr('data-path');
+                        window.untarItem(filePath)
                     }
                 })
             }
@@ -1354,7 +1487,7 @@ function UIItem(options){
                         if((alert_resp) === 'Delete'){
                             await window.delete_item(el_item);
                             // check if trash is empty
-                            const trash = await puter.fs.stat(window.trash_path);
+                            const trash = await puter.fs.stat({path: window.trash_path, consistency: 'eventual'});
                             // update other clients
                             if(window.socket){
                                 window.socket.emit('trash.is_empty', {is_empty: trash.is_empty});
@@ -1429,8 +1562,8 @@ function UIItem(options){
         if(val !== ''){
             const w = $('.item-name-shadow').width();
             const h = $('.item-name-shadow').height();
-            $(el_item_name_editor).width(w + 4)
-            $(el_item_name_editor).height(h + 2)
+            $(el_item_name_editor).width(w)
+            $(el_item_name_editor).height(h)
         }
     })
 
@@ -1469,9 +1602,8 @@ $(document).on('contextmenu', '.item-has-website-url-badge', async function(e){
     e.preventDefault();
     
     // close other context menus
-    const $ctxmenus = $(".context-menu");
-    $ctxmenus.fadeOut(200, function(){
-        $ctxmenus.remove();
+    $(".context-menu").fadeOut(200, function(){
+        $(this).remove();
     });
 
     UIContextMenu({
@@ -1510,6 +1642,7 @@ $(document).on('click', '.item-has-website-badge', async function(e){
         returnSubdomains: true,
         returnPermissions: false,
         returnVersions: false,
+        consistency: 'eventual',
         success: function (fsentry){
             if(fsentry.subdomains)
                 window.open(fsentry.subdomains[0].address, '_blank');
@@ -1523,6 +1656,7 @@ $(document).on('long-hover', '.item-has-website-badge', function(e){
         returnSubdomains: true,
         returnPermissions: false,
         returnVersions: false,
+        consistency: 'eventual',
         success: function (fsentry){
             var box = e.target.getBoundingClientRect();
 

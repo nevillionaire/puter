@@ -62,16 +62,6 @@ async function UIDesktop(options) {
     // Add this near the very beginning of the UIDesktop function
     window.desktop_icons_hidden = false; // Set default value immediately
 
-    // Initialize the preference early
-    puter.kv.get('desktop_icons_hidden').then(async (val) => {
-        window.desktop_icons_hidden = val === 'true';
-
-        // Apply the setting immediately if needed
-        if (window.desktop_icons_hidden) {
-            hideDesktopIcons();
-        }
-    });
-
     // Initialize toolbar auto-hide preference
     window.toolbar_auto_hide_enabled = true; // Set default value
 
@@ -80,31 +70,6 @@ async function UIDesktop(options) {
     if(toolbar_auto_hide_enabled_val === 'false' || toolbar_auto_hide_enabled_val === false){
         window.toolbar_auto_hide_enabled = false;
     }
-
-    // Modify the hide/show functions to use CSS rules that will apply to all icons, including future ones
-    window.hideDesktopIcons = function () {
-        // Add a CSS class to the desktop container that will hide all child icons
-        $('.desktop.item-container').addClass('desktop-icons-hidden');
-    };
-
-    window.showDesktopIcons = function () {
-        // Remove the CSS class to show all icons
-        $('.desktop.item-container').removeClass('desktop-icons-hidden');
-    };
-
-    // Add this function to the global scope
-    window.toggleDesktopIcons = function () {
-        window.desktop_icons_hidden = !window.desktop_icons_hidden;
-
-        if (window.desktop_icons_hidden) {
-            hideDesktopIcons();
-        } else {
-            showDesktopIcons();
-        }
-
-        // Save preference
-        puter.kv.set('desktop_icons_hidden', window.desktop_icons_hidden.toString());
-    };
 
     // Give Camera and Recorder write permissions to Desktop
     puter.kv.get('has_set_default_app_user_permissions').then(async (user_permissions) => {
@@ -707,6 +672,11 @@ async function UIDesktop(options) {
                 data-sort_order="${!options.desktop_fsentry.sort_order ? 'asc' : options.desktop_fsentry.sort_order}" 
                 data-path="${html_encode(window.desktop_path)}"
             >`;
+
+            // show AI button
+            if(window.ai_app_whitelisted_users.includes(window.user.username)){
+                h += `<div class="btn-show-ai"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles-icon lucide-sparkles"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></div>`;
+            }
     h += `</div>`;
 
     // Get window sidebar width
@@ -736,19 +706,30 @@ async function UIDesktop(options) {
     };
 
     // update default apps
-    puter.kv.list('user_preferences.default_apps.*').then(async (default_app_keys) => {
-        for (let key in default_app_keys) {
-            user_preferences[default_app_keys[key].substring(17)] = await puter.kv.get(default_app_keys[key]);
+    {
+        const entries = await puter.kv.list('user_preferences.default_apps.*', true);
+        for ( const entry of entries ) {
+            user_preferences[entry.key.substring(17)] = entry.value;
         }
 
         window.update_user_preferences(user_preferences);
-    });
+    }
 
     // Append to <body>
     $('body').append(h);
 
     // Set desktop height based on taskbar height
     $('.desktop').css('height', `calc(100vh - ${window.taskbar_height + window.toolbar_height}px)`)
+
+    // Initialize the preference early
+    puter.kv.get('desktop_icons_hidden').then(async (val) => {
+        window.desktop_icons_hidden = (val === 'true' || val === true);
+
+        // Apply the setting immediately if needed
+        if (window.desktop_icons_hidden) {
+            hideDesktopIcons();
+        }
+    });
 
     // ---------------------------------------------------------------
     // Taskbar
@@ -762,6 +743,7 @@ async function UIDesktop(options) {
 
     window.active_element = el_desktop;
     window.active_item_container = el_desktop;
+
     // --------------------------------------------------------
     // Dragster
     // Allow dragging of local files onto desktop.
@@ -859,6 +841,7 @@ async function UIDesktop(options) {
         if (event.target === el_desktop) {
             event.preventDefault();
             UIContextMenu({
+                position: event.type === 'taphold' ? undefined : { left: event.pageX, top: event.pageY },
                 items: [
                     // -------------------------------------------
                     // Sort by
@@ -953,7 +936,7 @@ async function UIDesktop(options) {
                     {
                         html: i18n('refresh'),
                         onClick: function () {
-                            refresh_item_container(el_desktop);
+                            refresh_item_container(el_desktop, { consistency: 'strong' });
                         }
                     },
                     // -------------------------------------------
@@ -1054,6 +1037,11 @@ async function UIDesktop(options) {
                 transaction.end();
             }
         })
+
+        // perform readdirs for caching purposes
+
+        // home directory
+        puter.fs.readdir({path: window.home_path, consistency: 'strong'});
 
         // Show welcome window if user hasn't already seen it and hasn't directly navigated to an app 
         if (!window.url_paths[0]?.toLocaleLowerCase() === 'app' || !window.url_paths[1]) {
@@ -1236,8 +1224,20 @@ async function UIDesktop(options) {
     //-----------------------------
     // GUI is ready to launch apps!
     //-----------------------------
-
+    window.dispatchEvent(new CustomEvent('desktop:ready'));
     globalThis.services.emit('gui:ready');
+
+    //--------------------------------------------------------
+    // Open the AI app
+    //--------------------------------------------------------    
+    if(window.ai_app_whitelisted_users.includes(window.user.username)){
+        launch_app({
+            name: 'ai',
+            window_options: {
+                is_panel: true,
+            }
+        })
+    }
 
     //--------------------------------------------------------------------------------------
     // Determine if an app was launched from URL
@@ -1255,7 +1255,7 @@ async function UIDesktop(options) {
                 $('.show-desktop-btn').removeClass('hidden');
             }
         } catch (e) {
-            console.error(e);
+            console.error('UIDesktop app path launch error', e);
         }
 
         // get query params, any param that doesn't start with 'puter.' will be passed to the app
@@ -1413,7 +1413,7 @@ async function UIDesktop(options) {
             }
         }
 
-        const stat = await puter.fs.stat(item_path);
+        const stat = await puter.fs.stat({path: item_path, consistency: 'eventual'});
         
         // TODO: DRY everything here with open_item. Unfortunately we can't
         //       use open_item here because it's coupled with UI logic;
@@ -1653,6 +1653,10 @@ async function UIDesktop(options) {
 
         // if selectable is active , don't show the toolbar
         if(window.desktop_selectable_is_active)
+            return;
+
+        // if an item is being dragged, don't show the toolbar
+        if(window.an_item_is_being_dragged)
             return;
 
         if(window.is_fullpage_mode)
@@ -2133,6 +2137,9 @@ $(document).on('click', '.start-app', async function (e) {
     $(".popover").fadeOut(200, function () {
         $(".popover").remove();
     });
+    $(".context-menu").fadeOut(200, function(){
+        $(this).remove();
+    });
 })
 
 $(document).on('click', '.user-options-login-btn', async function (e) {
@@ -2350,5 +2357,32 @@ window.reset_window_size_and_position = (el_window) => {
         left: 'calc(50% - 340px)',
     });
 }
+
+// Modify the hide/show functions to use CSS rules that will apply to all icons, including future ones
+window.hideDesktopIcons = function () {
+    $('.desktop.item-container').addClass('desktop-icons-hidden');
+};
+
+window.showDesktopIcons = function () {
+    $('.desktop.item-container').removeClass('desktop-icons-hidden');
+};
+
+// Add this function to the global scope
+window.toggleDesktopIcons = function () {
+    window.desktop_icons_hidden = !window.desktop_icons_hidden;
+
+    if (window.desktop_icons_hidden) {
+        hideDesktopIcons();
+    } else {
+        showDesktopIcons();
+    }
+
+    // Save preference
+    puter.kv.set('desktop_icons_hidden', window.desktop_icons_hidden.toString());
+};
+
+$(document).on('click', '.btn-show-ai', function () {
+    $('.window[data-app="ai"]').makeWindowVisible();
+});
 
 export default UIDesktop;

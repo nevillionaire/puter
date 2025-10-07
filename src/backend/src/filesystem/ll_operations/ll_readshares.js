@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 const { get_user } = require("../../helpers");
-const { PermissionUtil } = require("../../services/auth/PermissionService");
+const { PermissionUtil } = require("../../services/auth/PermissionUtils.mjs");
 const { DB_WRITE } = require("../../services/database/consts");
 const { NodeUIDSelector } = require("../node/selectors");
 const { LLFilesystemOperation } = require("./definitions");
@@ -79,6 +79,7 @@ class LLReadShares extends LLFilesystemOperation {
         }
 
         for ( const node of interm_results ) {
+            if ( ! await node.exists() ) continue;
             if ( ! await svc_acl.check(actor, node, 'see') ) continue;
             results.push(node);
         }
