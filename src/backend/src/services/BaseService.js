@@ -1,4 +1,3 @@
-// METADATA // {"ai-params":{"service":"xai"},"ai-refs":["../../doc/contributors/boot-sequence.md"],"ai-commented":{"service":"xai"}}
 /*
  * Copyright (C) 2024-present Puter Technologies Inc.
  *
@@ -17,14 +16,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-const { concepts } = require("@heyputer/putility");
-
-
+const { concepts } = require('@heyputer/putility');
 
 // This is a no-op function that AI is incapable of writing a comment for.
 // That said, I suppose it didn't need one anyway.
-const NOOP = async () => {};
-
+const NOOP = async () => {
+};
 
 /**
 * @class BaseService
@@ -50,7 +47,9 @@ class BaseService extends concepts.Service {
         Object.defineProperty(this, 'config', {
             get: () => configOverride ?? config.services?.[name] ?? {},
             set: why => {
-                console.warn('replacing config like this is probably a bad idea');
+                // TODO: uncomment and fix these in legacy services
+                //       (not very important; low priority)
+                // console.warn('replacing config like this is probably a bad idea');
                 configOverride = why;
             },
         });
@@ -61,7 +60,7 @@ class BaseService extends concepts.Service {
             this.global_config.server_id = 'local';
         }
     }
-    
+
     async run_as_early_as_possible () {
         await (this._run_as_early_as_possible || NOOP).call(this, this.args);
     }
@@ -69,7 +68,7 @@ class BaseService extends concepts.Service {
     /**
     * Creates the service's data structures and initial values.
     * This method sets up logging and error handling, and calls a custom `_construct` method if defined.
-    * 
+    *
     * @returns {Promise<void>} A promise that resolves when construction is complete.
     */
     async construct () {
@@ -81,12 +80,11 @@ class BaseService extends concepts.Service {
         await (this._construct || NOOP).call(this, this.args);
     }
 
-
     /**
     * Performs the initialization phase of the service lifecycle.
     * This method sets up logging and error handling for the service,
     * then calls the service-specific initialization logic if defined.
-    * 
+    *
     * @async
     * @memberof BaseService
     * @instance
@@ -99,11 +97,21 @@ class BaseService extends concepts.Service {
             log_fields.concern = this.constructor.CONCERN;
         }
         this.log = services.get('log-service').create(this.service_name, log_fields);
+
+        // INFO logs are treated as DEBUG logs instead if...
+        if (
+            // The configuration file explicitly says to do so
+            this.config.log_debug ||
+            // The class has `static LOG_DEBUG = true`; AND,
+            // the configuration file does NOT explicitly say NOT to do this
+            (!this.config.log_info && this.constructor.LOG_DEBUG)
+        ) {
+            this.log.info = this.log.debug;
+        }
         this.errors = services.get('error-service').create(this.log);
 
         await (this._init || NOOP).call(this, this.args);
     }
-
 
     /**
     * Handles an event by retrieving the appropriate event handler
@@ -127,3 +135,4 @@ class BaseService extends concepts.Service {
 }
 
 module.exports = BaseService;
+module.exports.BaseService = BaseService;

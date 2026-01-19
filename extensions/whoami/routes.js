@@ -1,4 +1,5 @@
 // static imports
+import _path from 'fs';
 import TimeAgo from 'javascript-time-ago';
 import localeEn from 'javascript-time-ago/locale/en';
 
@@ -47,7 +48,7 @@ const whoami_common = ({ is_user, user }) => {
             epoch = new Date(user.last_activity_ts).getTime();
             // round to 1 decimal place
             epoch = Math.round(epoch / 1000);
-        } catch (e) {
+        } catch ( e ) {
             console.error('Error parsing last_activity_ts', e);
         }
 
@@ -60,6 +61,7 @@ const whoami_common = ({ is_user, user }) => {
 
 extension.get('/whoami', { subdomain: 'api' }, async (req, res, next) => {
     const actor = req.actor;
+
     if ( ! actor ) {
         throw Error('actor not found in context');
     }
@@ -92,14 +94,18 @@ extension.get('/whoami', { subdomain: 'api' }, async (req, res, next) => {
                 : { no_icons: true }),
         }),
         referral_code: req.user.referral_code,
-        otp: !! req.user.otp_enabled,
+        otp: !!req.user.otp_enabled,
         human_readable_age: timeago.format(new Date(req.user.timestamp)),
+        hasDevAccountAccess: !!req.actor.type.user.metadata?.hasDevAccountAccess,
         ...(req.new_token ? { token: req.token } : {}),
     };
 
     // TODO: redundant? GetUserService already puts these values on 'user'
     // Get whoami values from other services
-    const svc_whoami = req.services.get('whoami');
+    const /** @type {any} */ svc_whoami = req.services.get('whoami');
+
+    const /** @type {any} */ svc_permission = req.services.get('permission');
+
     const provider_details = await svc_whoami.get_details({
         user: req.user,
         actor: actor,
@@ -110,8 +116,12 @@ extension.get('/whoami', { subdomain: 'api' }, async (req, res, next) => {
         // When apps call /whoami they should not see these attributes
         // delete details.username;
         // delete details.uuid;
-        delete details.email;
-        delete details.unconfirmed_email;
+
+        if ( ! (await svc_permission.check(actor, `user:${details.uuid}:email:read`, { no_cache: true })) ) {
+            delete details.email;
+            delete details.unconfirmed_email;
+        }
+
         delete details.desktop_bg_url;
         delete details.desktop_bg_color;
         delete details.desktop_bg_fit;
@@ -148,37 +158,35 @@ extension.post('/whoami', { subdomain: 'api' }, async (req, res) => {
     let desktop_items = [];
 
     // check if user asked for desktop items
-    if(req.query.return_desktop_items === 1 || req.query.return_desktop_items === '1' || req.query.return_desktop_items === 'true'){
+    if ( req.query.return_desktop_items === 1 || req.query.return_desktop_items === '1' || req.query.return_desktop_items === 'true' ) {
         // by cached desktop id
-        if(req.user.desktop_id){
+        if ( req.user.desktop_id ) {
             // TODO: Check if used anywhere, maybe remove
             // eslint-disable-next-line no-undef
-            desktop_items = await db.read(
-                `SELECT * FROM fsentries
+            desktop_items = await db.read(`SELECT * FROM fsentries
                 WHERE user_id = ? AND parent_uid = ?`,
-                [req.user.id, await id2uuid(req.user.desktop_id)]
-            )
+            [req.user.id, await id2uuid(req.user.desktop_id)]);
         }
         // by desktop path
-        else{
-            desktop_items = await get_descendants(req.user.username +'/Desktop', req.user, 1, true);
+        else {
+            desktop_items = await get_descendants(`${req.user.username }/Desktop`, req.user, 1, true);
         }
 
         // clean up desktop items and add some extra information
-        if(desktop_items.length > 0){
-            if(desktop_items.length > 0){
-                for (let i = 0; i < desktop_items.length; i++) {
-                    if(desktop_items[i].id !== null){
+        if ( desktop_items.length > 0 ) {
+            if ( desktop_items.length > 0 ) {
+                for ( let i = 0; i < desktop_items.length; i++ ) {
+                    if ( desktop_items[i].id !== null ) {
                         // suggested_apps for files
-                        if(!desktop_items[i].is_dir){
-                            desktop_items[i].suggested_apps = await suggest_app_for_fsentry(desktop_items[i], {user: req.user});
+                        if ( ! desktop_items[i].is_dir ) {
+                            desktop_items[i].suggested_apps = await suggest_app_for_fsentry(desktop_items[i], { user: req.user });
                         }
                         // is_shared
-                        desktop_items[i].is_shared   = await is_shared_with_anyone(desktop_items[i].id);
+                        desktop_items[i].is_shared = await is_shared_with_anyone(desktop_items[i].id);
 
                         // associated_app
-                        if(desktop_items[i].associated_app_id){
-                            const app = await get_app({id: desktop_items[i].associated_app_id})
+                        if ( desktop_items[i].associated_app_id ) {
+                            const app = await get_app({ id: desktop_items[i].associated_app_id });
 
                             // remove some privileged information
                             delete app.id;
@@ -189,7 +197,7 @@ extension.post('/whoami', { subdomain: 'api' }, async (req, res) => {
                             // add to array
                             desktop_items[i].associated_app = app;
 
-                        }else{
+                        } else {
                             desktop_items[i].associated_app = {};
                         }
 
@@ -200,7 +208,7 @@ extension.post('/whoami', { subdomain: 'api' }, async (req, res) => {
                     delete desktop_items[i].id;
                     delete desktop_items[i].user_id;
                     delete desktop_items[i].bucket;
-                    desktop_items[i].path = _path.join('/', req.user.username, desktop_items[i].name)
+                    desktop_items[i].path = _path.join('/', req.user.username, desktop_items[i].name);
                 }
             }
         }
@@ -221,5 +229,6 @@ extension.post('/whoami', { subdomain: 'api' }, async (req, res) => {
         taskbar_items: await get_taskbar_items(req.user),
         desktop_items: desktop_items,
         referral_code: req.user.referral_code,
+        hasDevAccountAccess: !!req.actor.user.metadata?.hasDevAccountAccess,
     }, whoami_common({ is_user, user: req.user })));
 });

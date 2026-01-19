@@ -1,27 +1,13 @@
 /*
  * Copyright (C) 2024-present Puter Technologies Inc.
- * 
- * This file is part of Puter.
- * 
- * Puter is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- * 
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-const { AdvancedBase } = require("../AdvancedBase");
-const ServiceFeature = require("../features/ServiceFeature");
+const { AdvancedBase } = require('../AdvancedBase');
+const ServiceFeature = require('../features/ServiceFeature');
 
 /** @type {Function} No-operation async function */
-const NOOP = async () => {};
+const NOOP = async () => {
+};
 
 /** @type {Symbol} Service trait symbol */
 const TService = Symbol('TService');
@@ -30,7 +16,7 @@ const TService = Symbol('TService');
  * Service class that will be incrementally updated to consolidate
  * BaseService in Puter's backend with Service in Puter's frontend,
  * becoming the common base for both and a useful utility in general.
- * 
+ *
  * @class Service
  * @extends AdvancedBase
  */
@@ -42,7 +28,7 @@ class Service extends AdvancedBase {
 
     /**
      * Handles events by calling the appropriate event handler
-     * 
+     *
      * @param {string} id - The event identifier
      * @param {Array} args - Arguments to pass to the event handler
      * @returns {Promise<*>} The result of the event handler
@@ -55,7 +41,7 @@ class Service extends AdvancedBase {
 
     /**
      * Retrieves the event handler for a given event ID
-     * 
+     *
      * @param {string} id - The event identifier
      * @returns {Function} The event handler function or NOOP if not found
      */
@@ -67,7 +53,7 @@ class Service extends AdvancedBase {
 
     /**
      * Factory method to create a new service instance
-     * 
+     *
      * @param {Object} config - Configuration object
      * @param {Object} config.parameters - Parameters for service construction
      * @param {Object} config.context - Context for the service
@@ -85,7 +71,7 @@ class Service extends AdvancedBase {
         [TService]: {
             /**
              * Initializes the service by running init hooks and calling _init if present
-             * 
+             *
              * @param {...*} a - Arguments to pass to _init method
              * @returns {*} Result of _init method if it exists
              */
@@ -100,7 +86,7 @@ class Service extends AdvancedBase {
             },
             /**
              * Constructs the service with given parameters
-             * 
+             *
              * @param {Object} o - Parameters object
              * @returns {*} Result of _construct method if it exists
              */
@@ -112,7 +98,7 @@ class Service extends AdvancedBase {
             },
             /**
              * Gets the dependencies for this service
-             * 
+             *
              * @returns {Array} Array of dependencies
              */
             get_depends () {
@@ -120,9 +106,9 @@ class Service extends AdvancedBase {
                     ...(this.constructor.DEPENDS ?? []),
                     ...(this.get_depends?.() ?? []),
                 ];
-            }
-        }
-    }
+            },
+        },
+    };
 }
 
 module.exports = {

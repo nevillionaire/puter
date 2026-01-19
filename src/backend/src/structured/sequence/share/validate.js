@@ -17,15 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-const APIError = require("../../../api/APIError");
-const { Sequence } = require("../../../codex/Sequence");
-const { whatis } = require("../../../util/langutil");
+const APIError = require('../../../api/APIError');
+const { Sequence } = require('../../../codex/Sequence');
 
 /*
     This code is optimized for editors supporting folding.
     Fold at Level 2 to conveniently browse sequence steps.
     Fold at Level 3 after opening an inner-sequence.
-    
+
     If you're using VSCode {
         typically "Ctrl+K, Ctrl+2" or "⌘K, ⌘2";
         to revert "Ctrl+K, Ctrl+J" or "⌘K, ⌘J";
@@ -37,24 +36,22 @@ module.exports = new Sequence({
     name: 'validate request',
 }, [
     function validate_metadata (a) {
-        console.log('thinngggggg', a.get('thing'));
-        a.set('asdf', 'zxcv');
         const req = a.get('req');
         const metadata = req.body.metadata;
 
         if ( ! metadata ) return;
-        
+
         if ( typeof metadata !== 'object' ) {
             throw APIError.create('field_invalid', null, {
                 key: 'metadata',
                 expected: 'object',
-                got: whatis(metadata),
+                got: metadata,
             });
         }
 
         const MAX_KEYS = 20;
         const MAX_STRING = 255;
-        const MAX_MESSAGE_STRING = 10*1024;
+        const MAX_MESSAGE_STRING = 10 * 1024;
 
         if ( Object.keys(metadata).length > MAX_KEYS ) {
             throw APIError.create('field_invalid', null, {
@@ -70,7 +67,7 @@ module.exports = new Sequence({
                 throw APIError.create('field_invalid', null, {
                     key: `metadata.${key}`,
                     expected: 'string or number',
-                    got: whatis(value),
+                    got: value,
                 });
             }
             if ( key === 'message' ) {
@@ -78,7 +75,7 @@ module.exports = new Sequence({
                     throw APIError.create('field_invalid', null, {
                         key: `metadata.${key}`,
                         expected: 'string',
-                        got: whatis(value),
+                        got: value,
                     });
                 }
                 if ( value.length > MAX_MESSAGE_STRING ) {
@@ -102,12 +99,12 @@ module.exports = new Sequence({
     function validate_mode (a) {
         const req = a.get('req');
         const mode = req.body.mode;
-        
+
         if ( mode === 'strict' ) {
             a.set('strict_mode', true);
             return;
         }
-        if ( ! mode || mode === 'best-effort' ) {
+        if ( !mode || mode === 'best-effort' ) {
             a.set('strict_mode', false);
             return;
         }
@@ -130,7 +127,7 @@ module.exports = new Sequence({
                 key: 'recipients',
                 expected: 'array or string',
                 got: typeof recipients,
-            })
+            });
         }
         // At least one recipient
         if ( recipients.length < 1 ) {
@@ -149,7 +146,7 @@ module.exports = new Sequence({
         if ( ! Array.isArray(shares) ) {
             shares = [shares];
         }
-        
+
         // At least one share
         if ( shares.length < 1 ) {
             throw APIError.create('field_invalid', null, {
@@ -158,8 +155,10 @@ module.exports = new Sequence({
                 got: 'none',
             });
         }
-        
+
         a.set('req_shares', shares);
     },
-    function return_state (a) { return a; }
+    function return_state (a) {
+        return a;
+    },
 ]);

@@ -16,20 +16,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-const { AdvancedBase } = require("@heyputer/putility");
-const { BaseES } = require("./BaseES");
+const { AdvancedBase } = require('@heyputer/putility');
+const { BaseES } = require('./BaseES');
 
-const APIError = require("../../api/APIError");
-const { Entity } = require("./Entity");
-const { WeakConstructorFeature } = require("../../traits/WeakConstructorFeature");
-const { And, Or, Eq, Like, Null, Predicate, PredicateUtil, IsNotNull, StartsWith } = require("../query/query");
-const { DB_WRITE } = require("../../services/database/consts");
+const APIError = require('../../api/APIError');
+const { Entity } = require('./Entity');
+const { WeakConstructorFeature } = require('../../traits/WeakConstructorFeature');
+const { And, Or, Eq, Like, Null, Predicate, PredicateUtil, IsNotNull, StartsWith } = require('../query/query');
+const { DB_WRITE } = require('../../services/database/consts');
+const { safeHasOwnProperty } = require('../../util/safety');
+const { ParallelTasks } = require('../../util/otelutil');
+const opentelemetry = require('@opentelemetry/api');
 
 class RawCondition extends AdvancedBase {
     // properties: sql:string, values:any[]
     static FEATURES = [
         new WeakConstructorFeature(),
-    ]
+    ];
 }
 
 class SQLES extends BaseES {
@@ -56,14 +59,12 @@ class SQLES extends BaseES {
                     if ( typeof uid === 'number' ) {
                         id_col = 'id';
                     }
-                    return [` WHERE ${id_col} = ?`, [uid]]
+                    return [` WHERE ${id_col} = ?`, [uid]];
                 }
-                
+
                 if ( ! uid.hasOwnProperty('predicate') ) {
-                    throw new Error(
-                        'SQLES.read does not understand this input: ' +
-                        'object with no predicate property',
-                    );
+                    throw new Error('SQLES.read does not understand this input: ' +
+                        'object with no predicate property');
                 }
                 let predicate = uid.predicate; // uid is actually a predicate
                 if ( predicate instanceof Predicate ) {
@@ -77,9 +78,7 @@ class SQLES extends BaseES {
             const stmt =
                 `SELECT * FROM ${this.om.sql.table_name}${stmt_where}`;
 
-            const rows = await this.db.read(
-                stmt, where_vals
-            );
+            const rows = await this.db.read(stmt, where_vals);
 
             if ( rows.length === 0 ) {
                 return null;
@@ -117,12 +116,9 @@ class SQLES extends BaseES {
 
             const rows = await this.db.read(stmt, values);
 
-            const entities = [];
-            for ( const data of rows ) {
-                const entity = await this.sql_row_to_entity_(data);
-                entities.push(entity);
-            }
-
+            const entities = await Promise.all(rows.map(async (data) => {
+                return await this.sql_row_to_entity_(data);
+            }));
             return entities;
         },
 
@@ -143,7 +139,7 @@ class SQLES extends BaseES {
                 values.push(value);
 
                 if ( old_entity ) {
-                    stmt += ` AND id != ?`;
+                    stmt += ' AND id != ?';
                     values.push(old_entity.private_meta.mysql_id);
                 }
 
@@ -176,9 +172,7 @@ class SQLES extends BaseES {
             const stmt =
                 `DELETE FROM ${this.om.sql.table_name} WHERE ${id_col} = ?`;
 
-            const res = await this.db.write(
-                stmt, [uid]
-            );
+            const res = await this.db.write(stmt, [uid]);
 
             if ( ! res.anyRowsAffected ) {
                 throw APIError.create('entity_not_found', null, {
@@ -193,6 +187,7 @@ class SQLES extends BaseES {
 
         async sql_row_to_entity_ (data) {
             const entity_data = {};
+            const tasks = new ParallelTasks({ tracer: opentelemetry.trace.getTracer('sqles') });
             for ( const prop of Object.values(this.om.properties) ) {
                 const options = prop.descriptor.sql ?? {};
 
@@ -202,50 +197,30 @@ class SQLES extends BaseES {
 
                 const col_name = options.column_name ?? prop.name;
 
-                if ( ! data.hasOwnProperty(col_name) ) {
+                if ( ! safeHasOwnProperty(data, col_name) ) {
                     continue;
                 }
 
                 let value = data[col_name];
-                value = await prop.sql_dereference(value);
-
-                // TODO: This is not an ideal implementation,
-                // but this is only 6 lines of code so doing this
-                // "properly" is not sensible at this time.
-                //
-                // This is here because:
-                // - SQLES has access to the "db" object
-                //
-                // Writing this in `json`'s `sql_reference` method
-                // is also not ideal because that places the concern
-                // of supporting different database backends to
-                // property types.
-                //
-                // Best solution: SQLES has a SQLRefinements by
-                // composition. This SQLRefinements is applied
-                // to property types for the duration of this
-                // function.
-                if ( prop.typ.name === 'json' ) {
-                    value = this.db.case({
-                        mysql: () => value,
-                        otherwise: () => JSON.parse(value ?? '{}'),
-                    })();
-                }
-
-                entity_data[prop.name] = value;
+                tasks.add(`sql_row_to_entity_::${prop.name}`, async () => {
+                    value = await prop.sql_dereference(value);
+                    if ( prop.typ.name === 'json' ) {
+                        value = this.db.case({
+                            mysql: () => value,
+                            otherwise: () => JSON.parse(value ?? '{}'),
+                        })();
+                    }
+                    entity_data[prop.name] = value;
+                });
             }
+            await tasks.awaitAll();
             const entity = await Entity.create({ om: this.om }, entity_data);
             entity.private_meta.mysql_id = data.id;
             return entity;
         },
 
         async create_ (entity) {
-            console.log('DO WE HAVE MAPPER?', this.om);
-            // console.log('DO WE HAVE DATA?', data);
-
             const sql_data = await this.get_sql_data_(entity);
-
-            console.log('SQL Data', sql_data);
 
             const sql_cols = Object.keys(sql_data).join(', ');
             const sql_placeholders = Object.keys(sql_data).map(() => '?').join(', ');
@@ -254,12 +229,11 @@ class SQLES extends BaseES {
             const stmt =
                 `INSERT INTO ${this.om.sql.table_name} (${sql_cols}) VALUES (${sql_placeholders})`;
 
-            console.log('SQL STMT', stmt);
-            console.log('SQL VALS', execute_vals);
+            // Very useful when debugging! Keep these here but commented out.
+            // console.log('SQL STMT', stmt);
+            // console.log('SQL VALS', execute_vals);
 
-            const res = await this.db.write(
-                stmt, execute_vals
-            );
+            const res = await this.db.write(stmt, execute_vals);
 
             return {
                 data: sql_data,
@@ -271,8 +245,6 @@ class SQLES extends BaseES {
             const sql_data = await this.get_sql_data_(entity);
             const id_value = await entity.get(this.om.primary_identifier);
             delete sql_data[this.om.primary_identifier];
-
-            console.log('SQL DATA', sql_data);
 
             const sql_assignments = Object.keys(sql_data).map((col_name) => {
                 return `${col_name} = ?`;
@@ -288,12 +260,11 @@ class SQLES extends BaseES {
 
             execute_vals.push(id_value);
 
-            console.log('SQL STMT', stmt);
-            console.log('SQL VALS', execute_vals);
+            // Very useful when debugging! Keep these here but commented out.
+            // console.log('SQL STMT', stmt);
+            // console.log('SQL VALS', execute_vals);
 
-            await this.db.write(
-                stmt, execute_vals
-            );
+            await this.db.write(stmt, execute_vals);
 
             const full_entity = await (await old_entity.clone()).apply(entity);
 
@@ -324,7 +295,7 @@ class SQLES extends BaseES {
                 }
 
                 value = await prop.sql_reference(value);
-                
+
                 // TODO: This is done here for consistency;
                 // see the larger comment in sql_row_to_entity_
                 // which does the reverse operation.
@@ -400,8 +371,8 @@ class SQLES extends BaseES {
 
                 return new RawCondition({ sql, values });
             }
-            
-            if (om_query instanceof StartsWith) {
+
+            if ( om_query instanceof StartsWith ) {
                 const key = om_query.key;
                 let value = om_query.value;
                 const prop = this.om.properties[key];
@@ -412,8 +383,8 @@ class SQLES extends BaseES {
                 const col_name = options.column_name ?? prop.name;
 
                 const sql = `${col_name} LIKE ${this.db.case({
-                    sqlite: `? || '%'`,
-                    otherwise: `CONCAT(?, '%')`
+                    sqlite: '? || \'%\'',
+                    otherwise: 'CONCAT(?, \'%\')',
                 })}`;
                 const values = value === null ? [] : [value];
 
@@ -451,8 +422,8 @@ class SQLES extends BaseES {
 
                 return new RawCondition({ sql, values });
             }
-        }
-    }
+        },
+    };
 }
 
 module.exports = SQLES;

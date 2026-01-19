@@ -1,7 +1,3 @@
-### `ai.prompt.check-usage`
-
-This event is emitted for ai prompt check usage operations.
-
 #### Property `completionId`
 
 completionId
@@ -74,11 +70,6 @@ service used
 ### `ai.prompt.cost-calculated`
 
 This event is emitted for ai prompt cost calculated operations.
-
-
-### `ai.prompt.report-usage`
-
-This event is emitted for ai prompt report usage operations.
 
 
 ### `ai.prompt.validate`

@@ -1,4 +1,3 @@
-// METADATA // {"ai-commented":{"service":"claude"}}
 /*
  * Copyright (C) 2024-present Puter Technologies Inc.
  *
@@ -17,12 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-const { APIError } = require("openai");
-const configurable_auth = require("../middleware/configurable_auth");
-const { Endpoint } = require("../util/expressutil");
-const { whatis } = require("../util/langutil");
-const BaseService = require("./BaseService");
-
+const { APIError } = require('openai');
+const configurable_auth = require('../middleware/configurable_auth');
+const { Endpoint } = require('../util/expressutil');
+const BaseService = require('./BaseService');
 
 /**
 * @class PermissionAPIService
@@ -37,7 +34,6 @@ class PermissionAPIService extends BaseService {
         express: require('express'),
     };
 
-
     /**
     * Installs routes for authentication and permission management into the Express app
     * @param {Object} _ Unused parameter
@@ -46,23 +42,22 @@ class PermissionAPIService extends BaseService {
     * @returns {Promise<void>}
     */
     async ['__on_install.routes'] (_, { app }) {
-        app.use(require('../routers/auth/get-user-app-token'))
-        app.use(require('../routers/auth/grant-user-app'))
-        app.use(require('../routers/auth/revoke-user-app'))
-        app.use(require('../routers/auth/grant-dev-app'))
-        app.use(require('../routers/auth/revoke-dev-app'))
+        app.use(require('../routers/auth/get-user-app-token'));
+        app.use(require('../routers/auth/grant-user-app'));
+        app.use(require('../routers/auth/revoke-user-app'));
+        app.use(require('../routers/auth/grant-dev-app'));
+        app.use(require('../routers/auth/revoke-dev-app'));
         app.use(require('../routers/auth/grant-user-user'));
         app.use(require('../routers/auth/revoke-user-user'));
         app.use(require('../routers/auth/grant-user-group'));
         app.use(require('../routers/auth/revoke-user-group'));
-        app.use(require('../routers/auth/list-permissions'))
+        app.use(require('../routers/auth/list-permissions'));
+        app.use(require('../routers/auth/check-permissions.js'));
 
-        Endpoint(
-            require('../routers/auth/check-app-acl.endpoint.js'),
-        ).but({
+        Endpoint(require('../routers/auth/check-app-acl.endpoint.js')).but({
             route: '/auth/check-app-acl',
         }).attach(app);
-        
+
         // track: scoping iife
         /**
         * Creates a scoped router for group-related endpoints using an IIFE pattern
@@ -72,13 +67,13 @@ class PermissionAPIService extends BaseService {
         const r_group = (() => {
             const require = this.require;
             const express = require('express');
-            return express.Router()
+            return express.Router();
         })();
 
         this.install_group_endpoints_({ router: r_group });
         app.use('/group', r_group);
     }
-    
+
     install_group_endpoints_ ({ router }) {
         Endpoint({
             route: '/create',
@@ -86,22 +81,22 @@ class PermissionAPIService extends BaseService {
             mw: [configurable_auth()],
             handler: async (req, res) => {
                 const owner_user_id = req.user.id;
-                
+
                 const extra = req.body.extra ?? {};
                 const metadata = req.body.metadata ?? {};
-                if ( whatis(extra) !== 'object' ) {
+                if ( !extra || typeof extra !== 'object' || Array.isArray(extra) ) {
                     throw APIError.create('field_invalid', null, {
                         key: 'extra',
                         expected: 'object',
-                        got: whatis(extra),
-                    })
+                        got: extra,
+                    });
                 }
-                if ( whatis(metadata) !== 'object' ) {
+                if ( !metadata || typeof metadata !== 'object' || Array.isArray(metadata) ) {
                     throw APIError.create('field_invalid', null, {
                         key: 'metadata',
                         expected: 'object',
-                        got: whatis(metadata),
-                    })
+                        got: metadata,
+                    });
                 }
 
                 const svc_group = this.services.get('group');
@@ -112,58 +107,57 @@ class PermissionAPIService extends BaseService {
                     // Metadata can be specified in request
                     metadata: metadata ?? {},
                 });
-                
+
                 res.json({ uid });
-            }
+            },
         }).attach(router);
-        
+
         Endpoint({
             route: '/add-users',
             methods: ['POST'],
             mw: [configurable_auth()],
             handler: async (req, res) => {
-                const svc_group = this.services.get('group')
-                
+                const svc_group = this.services.get('group');
+
                 // TODO: validate string and uuid for request
 
-                const group = await svc_group.get(
-                    { uid: req.body.uid });
-                
+                const group = await svc_group.get({ uid: req.body.uid });
+
                 if ( ! group ) {
                     throw APIError.create('entity_not_found', null, {
                         identifier: req.body.uid,
-                    })
+                    });
                 }
-                
+
                 if ( group.owner_user_id !== req.user.id ) {
                     throw APIError.create('forbidden');
                 }
-                
-                if ( whatis(req.body.users) !== 'array' ) {
+
+                if ( ! Array.isArray(req.body.users) ) {
                     throw APIError.create('field_invalid', null, {
                         key: 'users',
                         expected: 'array',
-                        got: whatis(req.body.users),
+                        got: req.body.users,
                     });
                 }
-                
-                for ( let i=0 ; i < req.body.users.length ; i++ ) {
+
+                for ( let i = 0 ; i < req.body.users.length ; i++ ) {
                     const value = req.body.users[i];
-                    if ( whatis(value) === 'string' ) continue;
+                    if ( typeof value === 'string' ) continue;
                     throw APIError.create('field_invalid', null, {
                         key: `users[${i}]`,
                         expected: 'string',
-                        got: whatis(value),
+                        got: value,
                     });
                 }
-                
+
                 await svc_group.add_users({
                     uid: req.body.uid,
                     users: req.body.users,
                 });
-                
+
                 res.json({});
-            }
+            },
         }).attach(router);
 
         // TODO: DRY: add-users is very similar
@@ -172,48 +166,47 @@ class PermissionAPIService extends BaseService {
             methods: ['POST'],
             mw: [configurable_auth()],
             handler: async (req, res) => {
-                const svc_group = this.services.get('group')
-                
+                const svc_group = this.services.get('group');
+
                 // TODO: validate string and uuid for request
 
-                const group = await svc_group.get(
-                    { uid: req.body.uid });
-                
+                const group = await svc_group.get({ uid: req.body.uid });
+
                 if ( ! group ) {
                     throw APIError.create('entity_not_found', null, {
                         identifier: req.body.uid,
-                    })
+                    });
                 }
 
                 if ( group.owner_user_id !== req.user.id ) {
                     throw APIError.create('forbidden');
                 }
-                
-                if ( whatis(req.body.users) !== 'array' ) {
+
+                if ( Array.isArray(req.body.users) ) {
                     throw APIError.create('field_invalid', null, {
                         key: 'users',
                         expected: 'array',
-                        got: whatis(req.body.users),
+                        got: req.body.users,
                     });
                 }
-                
-                for ( let i=0 ; i < req.body.users.length ; i++ ) {
+
+                for ( let i = 0 ; i < req.body.users.length ; i++ ) {
                     const value = req.body.users[i];
-                    if ( whatis(value) === 'string' ) continue;
+                    if ( typeof value === 'string' ) continue;
                     throw APIError.create('field_invalid', null, {
                         key: `users[${i}]`,
                         expected: 'string',
-                        got: whatis(value),
+                        got: value,
                     });
                 }
-                
+
                 await svc_group.remove_users({
                     uid: req.body.uid,
                     users: req.body.users,
                 });
-                
+
                 res.json({});
-            }
+            },
         }).attach(router);
 
         Endpoint({
@@ -222,26 +215,21 @@ class PermissionAPIService extends BaseService {
             mw: [configurable_auth()],
             handler: async (req, res) => {
                 const svc_group = this.services.get('group');
-                
+
                 // TODO: validate string and uuid for request
 
-                const owned_groups = await svc_group.list_groups_with_owner(
-                    { owner_user_id: req.user.id });
+                const owned_groups = await svc_group.list_groups_with_owner({ owner_user_id: req.user.id });
 
-                const in_groups = await svc_group.list_groups_with_member(
-                    { user_id: req.user.id });
+                const in_groups = await svc_group.list_groups_with_member({ user_id: req.user.id });
 
                 const public_groups = await svc_group.list_public_groups();
 
                 res.json({
-                    owned_groups: await Promise.all(owned_groups.map(
-                        g => g.get_client_value({ members: true }))),
-                    in_groups: await Promise.all(in_groups.map(
-                        g => g.get_client_value({ members: true }))),
-                    public_groups: await Promise.all(public_groups.map(
-                        g => g.get_client_value())),
+                    owned_groups: await Promise.all(owned_groups.map(g => g.get_client_value({ members: true }))),
+                    in_groups: await Promise.all(in_groups.map(g => g.get_client_value({ members: true }))),
+                    public_groups: await Promise.all(public_groups.map(g => g.get_client_value())),
                 });
-            }
+            },
         }).attach(router);
 
         Endpoint({
@@ -253,7 +241,7 @@ class PermissionAPIService extends BaseService {
                     user: this.global_config.default_user_group,
                     temp: this.global_config.default_temp_group,
                 });
-            }
+            },
         }).attach(router);
     }
 }

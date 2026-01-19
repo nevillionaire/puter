@@ -1,16 +1,34 @@
+
 // testUtils.ts - Puter.js API test utilities (TypeScript)
-import type { Puter } from '../../src/puter-js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'yaml';
+import type { Puter } from '../../src/puter-js/index.js';
 
-// Create and configure a global puter instance from environment variables
+// Create and configure a global puter instance from client-config.yaml
 // Usage: import { puter } from './testUtils'
-// Environment variables: PUTER_AUTH_TOKEN, PUTER_API_ORIGIN, PUTER_ORIGIN
+// Configuration is read from tests/client-config.yaml
 
-// @ts-ignore
-const puter: Puter = require('../../src/puter-js/src/index.js').default || globalThis.puter;
-globalThis.PUTER_ORIGIN = process.env.PUTER_ORIGIN || 'https://puter.com';
-globalThis.PUTER_API_ORIGIN = process.env.PUTER_API_ORIGIN || 'https://api.puter.com';
-if (process.env.PUTER_API_ORIGIN) (puter as any).setAPIOrigin(process.env.PUTER_API_ORIGIN);
-if (process.env.PUTER_ORIGIN) (puter as any).defaultGUIOrigin = process.env.PUTER_ORIGIN;
-if (process.env.PUTER_AUTH_TOKEN) (puter as any).setAuthToken(process.env.PUTER_AUTH_TOKEN);
+// Load configuration from YAML file
+let config: Record<string, string>;
+try {
+    const configPath = path.join(__dirname, '../client-config.yaml');
+    config = yaml.parse(fs.readFileSync(configPath, 'utf8'));
+} catch ( error ) {
+    console.error('Failed to load client-config.yaml:', error);
+    process.exit(1);
+}
+
+const puter: Puter = require('../../src/puter-js/src/index.js').default || (globalThis as unknown as { puter: Puter }).puter;
+
+(globalThis as Record<string, unknown>).PUTER_ORIGIN = config.frontend_url;
+(globalThis as Record<string, unknown>).PUTER_API_ORIGIN = config.api_url;
+
+(puter as unknown as { setAPIOrigin: (a: string) => void }).setAPIOrigin(config.api_url);
+(puter as unknown as { defaultGUIOrigin: string }).defaultGUIOrigin = config.frontend_url;
+
+if ( config.auth_token ) {
+    (puter as unknown as { setAuthToken: (a: string) => void }).setAuthToken(config.auth_token);
+}
 
 export { puter };

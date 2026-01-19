@@ -1,9 +1,5 @@
 export default [
     {
-        id: 'ai.prompt.check-usage',
-        description: `
-            This event is emitted for ai prompt check usage operations.
-        `,
         properties: {
             completionId: {
                 type: 'any',
@@ -28,7 +24,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'parameters',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -66,19 +62,13 @@ export default [
                 mutability: 'mutable',
                 summary: 'service used',
                 notes: [],
-            }
+            },
         },
     },
     {
         id: 'ai.prompt.cost-calculated',
         description: `
             This event is emitted for ai prompt cost calculated operations.
-        `,
-    },
-    {
-        id: 'ai.prompt.report-usage',
-        description: `
-            This event is emitted for ai prompt report usage operations.
         `,
     },
     {
@@ -113,7 +103,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'parameters',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -127,7 +117,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'data url',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -141,7 +131,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'data url',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -156,7 +146,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'apps',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -170,7 +160,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'required',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -185,17 +175,17 @@ export default [
                 mutability: 'no-effect',
                 summary: 'the email being validated',
                 notes: [
-                    'The email may have already been cleaned.'
-                ]
+                    'The email may have already been cleaned.',
+                ],
             },
             allow: {
                 type: 'boolean',
                 mutability: 'mutable',
                 summary: 'whether the email is allowed',
                 notes: [
-                    'If set to false, the email will be considered invalid.'
-                ]
-            }
+                    'If set to false, the email will be considered invalid.',
+                ],
+            },
         },
     },
     {
@@ -207,13 +197,13 @@ export default [
             node: {
                 type: 'FSNodeContext',
                 mutability: 'no-effect',
-                summary: 'the directory that was created'
+                summary: 'the directory that was created',
             },
             context: {
                 type: 'Context',
                 mutability: 'no-effect',
-                summary: 'current context'
-            }
+                summary: 'current context',
+            },
         },
     },
     {
@@ -236,7 +226,7 @@ export default [
                         measurements: data.measurements
                     });
                 });
-            `
+            `,
         },
     },
     {
@@ -256,7 +246,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'cost uuid',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -276,7 +266,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'cost uuid',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -296,7 +286,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'cost uuid',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -310,7 +300,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'usages',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -335,7 +325,7 @@ export default [
                 notes: [
                     'The email may have already been cleaned.',
                 ],
-            }
+            },
         },
     },
     {
@@ -355,7 +345,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'current context',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -387,7 +377,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'path to the affected resource',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -419,7 +409,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'path to the affected resource',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -439,7 +429,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'current context',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -466,7 +456,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'end',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -480,7 +470,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'uuid',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -494,7 +484,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -508,7 +498,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -522,7 +512,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -536,7 +526,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -550,7 +540,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -570,7 +560,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'notification',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -584,7 +574,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -598,7 +588,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -612,7 +602,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'response',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -644,7 +634,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'data',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -670,7 +660,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'body',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -690,7 +680,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'res',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -716,7 +706,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'end',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -730,7 +720,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'message',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -750,7 +740,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'usages',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -764,7 +754,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'new email',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -778,7 +768,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'email',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -792,7 +782,7 @@ export default [
                 mutability: 'no-effect',
                 summary: 'user associated with the operation',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -806,7 +796,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'user associated with the operation',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -820,7 +810,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'user associated with the operation',
                 notes: [],
-            }
+            },
         },
     },
     {
@@ -834,7 +824,7 @@ export default [
                 mutability: 'mutable',
                 summary: 'policy information for the operation',
                 notes: [],
-            }
+            },
         },
-    }
+    },
 ];

@@ -1,24 +1,9 @@
 /*
  * Copyright (C) 2024-present Puter Technologies Inc.
- * 
- * This file is part of Puter.
- * 
- * Puter is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- * 
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-const { AdvancedBase } = require("../AdvancedBase");
-const { TLogger, AS } = require("../traits/traits");
+const { AdvancedBase } = require('../AdvancedBase');
+const { TLogger, AS } = require('../traits/traits');
 
 /**
  * Logger implementation that stores log entries in an internal array buffer.
@@ -27,9 +12,9 @@ const { TLogger, AS } = require("../traits/traits");
 class ArrayLogger extends AdvancedBase {
     static PROPERTIES = {
         buffer: {
-            factory: () => []
-        }
-    }
+            factory: () => [],
+        },
+    };
     static IMPLEMENTS = {
         [TLogger]: {
             /**
@@ -41,9 +26,9 @@ class ArrayLogger extends AdvancedBase {
              */
             log (level, message, fields, values) {
                 this.buffer.push({ level, message, fields, values });
-            }
-        }
-    }
+            },
+        },
+    };
 }
 
 /**
@@ -54,14 +39,14 @@ class CategorizedToggleLogger extends AdvancedBase {
     static PROPERTIES = {
         categories: {
             description: 'categories that are enabled',
-            factory: () => ({})
+            factory: () => ({}),
         },
         delegate: {
             construct: true,
             value: null,
             adapt: v => AS(v, TLogger),
-        }
-    }
+        },
+    };
     static IMPLEMENTS = {
         [TLogger]: {
             /**
@@ -76,9 +61,9 @@ class CategorizedToggleLogger extends AdvancedBase {
                 const category = fields.category;
                 if ( ! this.categories[category] ) return;
                 return this.delegate.log(level, message, fields, values);
-            }
-        }
-    }
+            },
+        },
+    };
     /**
      * Enables logging for the specified category.
      * @param {string} category - The category to enable
@@ -103,14 +88,14 @@ class ToggleLogger extends AdvancedBase {
     static PROPERTIES = {
         enabled: {
             construct: true,
-            value: true
+            value: true,
         },
         delegate: {
             construct: true,
             value: null,
             adapt: v => AS(v, TLogger),
-        }
-    }
+        },
+    };
     static IMPLEMENTS = {
         [TLogger]: {
             /**
@@ -122,11 +107,11 @@ class ToggleLogger extends AdvancedBase {
              * @returns {*} Result from delegate logger if enabled, undefined otherwise
              */
             log (level, message, fields, values) {
-                if ( ! this.enabled) return;
+                if ( ! this.enabled ) return;
                 return this.delegate.log(level, message, fields, values);
-            }
-        }
-    }
+            },
+        },
+    };
 }
 
 /**
@@ -147,12 +132,12 @@ class ConsoleLogger extends AdvancedBase {
             //     } catch (e) {}
             //     return '' + v;
             // }
-        }
-    }
+        },
+    };
     static PROPERTIES = {
         console: {
             construct: true,
-            factory: () => console
+            factory: () => console,
         },
         format: () => ({
             info: {
@@ -169,7 +154,7 @@ class ConsoleLogger extends AdvancedBase {
                 ansii: '\x1b[34;1m',
             },
         }),
-    }
+    };
     static IMPLEMENTS = {
         [TLogger]: {
             /**
@@ -188,17 +173,17 @@ class ConsoleLogger extends AdvancedBase {
                 str += message;
 
                 // fields
-                if (Object.keys(fields).length) {
+                if ( Object.keys(fields).length ) {
                     str += ' ';
-                    str += Object.entries(fields)
+                    str += `${Object.entries(fields)
                         .map(([k, v]) => `\n  ${k}=${util.inspect(v)}`)
-                        .join(' ') + '\n';
+                        .join(' ') }\n`;
                 }
 
                 (this.console ?? console)[l.err ? 'error' : 'log'](str, ...values);
-            }
-        }
-    }
+            },
+        },
+    };
 }
 
 /**
@@ -208,14 +193,14 @@ class PrefixLogger extends AdvancedBase {
     static PROPERTIES = {
         prefix: {
             construct: true,
-            value: ''
+            value: '',
         },
         delegate: {
             construct: true,
             value: null,
             adapt: v => AS(v, TLogger),
-        }
-    }
+        },
+    };
     static IMPLEMENTS = {
         [TLogger]: {
             /**
@@ -227,13 +212,10 @@ class PrefixLogger extends AdvancedBase {
              * @returns {*} Result from the delegate logger
              */
             log (level, message, fields, values) {
-                return this.delegate.log(
-                    level, this.prefix + message,
-                    fields, values
-                );
-            }
-        }
-    }
+                return this.delegate.log(level, this.prefix + message, fields, values);
+            },
+        },
+    };
 }
 
 /**
@@ -243,14 +225,14 @@ class FieldsLogger extends AdvancedBase {
     static PROPERTIES = {
         fields: {
             construct: true,
-            factory: () => ({})
+            factory: () => ({}),
         },
         delegate: {
             construct: true,
             value: null,
             adapt: v => AS(v, TLogger),
-        }
-    }
+        },
+    };
 
     static IMPLEMENTS = {
         [TLogger]: {
@@ -263,14 +245,10 @@ class FieldsLogger extends AdvancedBase {
              * @returns {*} Result from the delegate logger
              */
             log (level, message, fields, values) {
-                return this.delegate.log(
-                    level, message,
-                    Object.assign({}, this.fields, fields),
-                    values,
-                );
-            }
-        }
-    }
+                return this.delegate.log(level, message, Object.assign({}, this.fields, fields), values);
+            },
+        },
+    };
 }
 
 /**
@@ -289,7 +267,7 @@ class LoggerFacade extends AdvancedBase {
         cat: {
             construct: true,
         },
-    }
+    };
 
     static IMPLEMENTS = {
         [TLogger]: {
@@ -301,10 +279,10 @@ class LoggerFacade extends AdvancedBase {
              * @param {Array} values - Additional values
              */
             log (level, message, fields, values) {
-                console.log()
-            }
-        }
-    }
+                console.log();
+            },
+        },
+    };
 
     /**
      * Creates a new logger facade with additional default fields.
